@@ -17,6 +17,7 @@ Points to keep in mind:
 
 - **Billing.** 23 of the 36 final episodes billed an API key before the subscription guard existed, and 13 ran on the subscription. The model was the same throughout.
 - **Cost.** USD figures are Claude Code's estimates.
+- **Each step changes more than one thing.** mem adds notes, the frame archive and `inspect` over img; full adds the exact readout and five measurement tools over mem. Neither comparison isolates one tool, and the static benchmark's images-only arm has no tools at all.
 - **Chance floor.** The claim fractions are not chance-corrected. Reporting fixed constants passes about 0.26 of P1 claims, about 0.41 of P5 claims and none of P4 (audit of 2026-10-12).
 - **P4 evidence rule.** The official rule requires a frame of at most 0.1 nm/px covering the reported site after the last move. The task text does not state this rule.
 - **Tip diagnosis.** The simulator blurs only along the fast-scan axis, so blunt tips look sharp across it. Until that is fixed, tip-diagnosis scores are unreliable.

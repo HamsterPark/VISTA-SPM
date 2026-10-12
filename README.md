@@ -17,7 +17,7 @@ It acts through one MCP server, one instrument action per turn.
 
 ## Why
 
-MAST's agents saw STM frames through a fine-tuned vision model (VIGIL) that turned each image into text. VISTA's ablations on ARC-AGI-3 point the other way: give a frontier multimodal model the pixels, a lossless memory and tools to look again.
+MAST's agents saw STM frames through a fine-tuned vision model (VIGIL) that turned each image into text. VISTA's ablations on ARC-AGI-3 point the other way. Give a frontier multimodal model the pixels and a lossless memory of them, plus a magnifier (`inspect`: retrieve any past frame, crop it, enlarge it) and an exact readout (`read_pixels`). In VISTA's ablation, notes add 4.2 points, the memory with `inspect` adds 24.1 and `read_pixels` another 4.9.
 
 This repository tests that route on the STM-Bench simulator. VIGIL's text is kept as a control arm.
 
@@ -46,7 +46,12 @@ Each comparison below pairs the two arms' episodes on the same scenario and seed
 | mem vs vigil-text | 6 | 3 | 0 |
 | full vs mem | 0 | 8 | 1 |
 
-Three seeds per cell do not separate full from mem.
+Three seeds per cell do not separate full from mem. Each step also changes more than one thing:
+
+- mem adds three things over img: notes, the frame archive and `inspect`.
+- full adds two kinds of tools over mem: the exact readout and five measurement tools.
+
+In the episodes the two arms used different tools for the same job: mem magnified frames 7.8 times per episode, while full measured 15 times and magnified twice.
 
 **The claim fractions are not chance-corrected.** An audit of STM-Bench on 2026-10-12 found that reporting fixed constants, with the evidence requirements met, passes these shares of claims:
 
@@ -61,7 +66,7 @@ The same constants fully reproduce about 2–3% of P1 episodes, 13% of P5 episod
 | Answerer | Correct |
 |---|---|
 | Claude with tools | 31 |
-| Claude, images only | 23 |
+| Claude, images only (no tools at all) | 23 |
 | Classical baseline | 30 |
 
 The gap between the two Claude arms comes almost entirely from herringbone periods, which need measurement.
@@ -79,7 +84,7 @@ python -m vista_spm run
        claude ── stdio MCP ──► mcp_bridge.py (stdlib only) ──► RpcServer ──► VistaHost
 ```
 
-- **Observation:** raw frames with whole-pixel nearest-neighbour scaling. Labels and numbers travel in text next to the image, never drawn inside it.
+- **Observation:** raw frames with whole-pixel nearest-neighbour scaling. Labels and numbers travel in text next to the image, never drawn inside it. VISTA's ARC renderer also draws faint cell grid lines, a sheet of graph paper; this port draws nothing on the image.
 - **Visual memory:** every frame, channel, direction and partial snapshot is archived losslessly, with a stable id.
   - `inspect` crops and enlarges any archived region, channel or flattening.
   - `read_values` returns exact numbers.

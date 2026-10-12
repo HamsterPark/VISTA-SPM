@@ -18,8 +18,10 @@ instrument and hidden truth; STM-Bench's judge scores the episode.
 
 Principles carried over from VISTA:
 
-1. Images are the observation. Nothing is drawn inside an image; all labels and numbers
-   travel in adjacent text blocks.
+1. Images are the observation. All labels and numbers travel in adjacent text blocks.
+   VISTA's ARC renderer draws faint cell grid lines (every 8 px darkened to 3/4), a sheet
+   of graph paper; this port draws nothing inside an image. The STM counterpart of that
+   grid, a faint nm grid or scale bar, has not been tested.
 2. Lossless memory: every frame, channel, direction and partial snapshot is archived and
    addressable forever; only the current observation is pushed into context automatically.
 3. One action, one observation: an `act` executes only after the previous `act`'s result
