@@ -1,0 +1,446 @@
+{
+ "scenario": "P4_atom_positioning_cu111",
+ "override": {
+  "target_site": {
+   "max_nm_per_px": 0.2
+  }
+ },
+ "rows": [
+  {
+   "seed": "seed0",
+   "arm": "V-full_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 1,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 1,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed0",
+   "arm": "V-img_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 1,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": 1,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 1,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed0",
+   "arm": "V-mem_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   }
+  },
+  {
+   "seed": "seed0",
+   "arm": "V-vigil-text_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": null,
+     "truth": null
+    }
+   }
+  },
+  {
+   "seed": "seed1",
+   "arm": "V-full_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed1",
+   "arm": "V-img_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 1,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed1",
+   "arm": "V-mem_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": 0.0
+    }
+   },
+   "official_in_ledger": 2,
+   "relaxed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 280,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed1",
+   "arm": "V-vigil-text_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   }
+  },
+  {
+   "seed": "seed2",
+   "arm": "V-full_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": 0.0
+    }
+   },
+   "official_in_ledger": 2,
+   "relaxed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed2",
+   "arm": "V-img_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   }
+  },
+  {
+   "seed": "seed2",
+   "arm": "V-mem_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": 0.0
+    }
+   },
+   "official_in_ledger": 2,
+   "relaxed": {
+    "n_verified": 2,
+    "target_site": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": "…"
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": true,
+     "evidence_ok": true,
+     "atom_id": 84,
+     "truth": 0.0
+    }
+   }
+  },
+  {
+   "seed": "seed2",
+   "arm": "V-vigil-text_claude-opus-5-5_high",
+   "official_recomputed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_frame_covers_report"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   },
+   "official_in_ledger": 0,
+   "relaxed": {
+    "n_verified": 0,
+    "target_site": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": {
+      "reason": "no_atom_moved"
+     }
+    },
+    "bystander_max_shift_nm": {
+     "value_ok": false,
+     "evidence_ok": false,
+     "atom_id": null,
+     "truth": null
+    }
+   }
+  }
+ ]
+}
