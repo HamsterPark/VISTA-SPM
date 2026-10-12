@@ -10,10 +10,11 @@
 - Weekly guard: when any rate_limit_event reports seven_day utilization >= --weekly-guard,
   no new episode starts; running ones finish; the script exits and says so.
 - --cwd: run the children from a frozen code snapshot (python -m puts the cwd first on sys.path).
+- --grid off: scan images without the metric grid, as in m1; the runs are filed as <arm>-nogrid.
 
 usage: python scripts/run_matrix.py --out DIR --run-id ID --arms full,img --scenarios A,B --seeds 0,1,2
                             [--cwd SNAPSHOT] [--parallel 2] [--model ..] [--effort high]
-                            [--max-usd 40] [--weekly-guard 0.7]
+                            [--max-usd 40] [--weekly-guard 0.7] [--grid off]
 """
 import argparse
 import json
@@ -85,16 +86,18 @@ def main() -> int:
     ap.add_argument("--weekly-guard", type=float, default=0.7)
     ap.add_argument("--cwd", default=None)
     ap.add_argument("--python", default=sys.executable)
+    ap.add_argument("--grid", choices=["on", "off"], default=None)
     a = ap.parse_args()
     out = Path(a.out).resolve()
     logs = out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     seeds = [int(s) for s in a.seeds.split(",")]
+    filed = (lambda arm: f"{arm}-nogrid") if a.grid == "off" else (lambda arm: arm)
     queue = []
     for seed in seeds:
         for arm in a.arms.split(","):
             for scenario in a.scenarios.split(","):
-                d = run_dir(out, scenario, seed, arm, a.model, a.effort, a.run_id)
+                d = run_dir(out, scenario, seed, filed(arm), a.model, a.effort, a.run_id)
                 if (d / "episode.json").is_file() and not limit_info(d)["limited"]:
                     print(f"skip (done) seed{seed} {arm} {scenario}", flush=True)
                     continue
@@ -114,7 +117,7 @@ def main() -> int:
             log = logs / f"seed{seed}_{arm}_{scenario}_{a.run_id}.log"
             cmd = [a.python, "-m", "vista_spm", "run", "--scenario", scenario, "--seeds", str(seed),
                    "--arm", arm, "--model", a.model, "--effort", a.effort, "--out", str(out), "--run", a.run_id,
-                   "--runner-opt", f"max_budget_usd={a.max_usd}"]
+                   "--runner-opt", f"max_budget_usd={a.max_usd}"] + (["--grid", a.grid] if a.grid else [])
             fh = open(log, "a", encoding="utf-8")
             p = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, cwd=a.cwd or None, env=os.environ.copy())
             running.append((p, scenario, seed, arm, fh, time.time()))
@@ -127,7 +130,7 @@ def main() -> int:
                 continue
             fh.close()
             running.remove(item)
-            d = run_dir(out, scenario, seed, arm, a.model, a.effort, a.run_id)
+            d = run_dir(out, scenario, seed, filed(arm), a.model, a.effort, a.run_id)
             li = limit_info(d) if d.exists() else {"limited": False, "resets_at": None, "seven_day": None}
             if li["limited"]:
                 if d.exists():

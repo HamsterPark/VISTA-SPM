@@ -71,6 +71,32 @@ def test_tool_defs_are_complete():
     assert set(V.view_tools(1024)) == {"inspect", "read_values"}
 
 
+def test_inspect_describes_the_grid_only_when_the_archive_draws_one():
+    plain, lined = V.make_inspect_tool(), V.make_inspect_tool(grid=True)
+    assert plain.description == V.INSPECT_TOOL.description and "nothing is drawn on them" in plain.description
+    assert "grid" not in plain.description
+    for part in ("amber lines draw a square grid every grid_nm nm", "top-left corner of the frame's full image",
+                 "the grid spacing (grid_nm)"):
+        assert part in lined.description, part
+    assert V.view_tools(768, grid=True)["inspect"][0].description == lined.description
+
+
+def test_inspect_with_grid_reports_the_spacing_of_each_view(tmp_path):
+    a = Archive(tmp_path / "g", grid=True)
+    a.add_partial(0, {"Z": np.zeros((384, 384))}, geometry=GEOM, meta={})         # 38.4 nm, 2 image px/scan px
+    r = V.inspect(a, {"question": "q", "views": [
+        {"label": "whole", "frame": "t0000.p0"},
+        {"label": "zoom", "frame": "t0000.p0", "region": {"x": 100, "y": 100, "width": 64, "height": 64}}]})
+    whole, zoom = _ok(r)["views"]
+    assert (whole["grid_nm"], zoom["grid_nm"]) == (5.0, 0.2)        # 38.4/16 -> 5 nm; 3.2 nm/16 = 0.2 nm
+    assert list(whole)[list(whole).index("corners_nm") + 1] == "grid_nm"
+    assert 'grid_nm="5"' in r.images[0].label and 'grid_nm="0.2"' in r.images[1].label
+    plain = Archive(tmp_path / "p")
+    e = plain.add_partial(0, {"Z": np.zeros((8, 8))}, geometry=GEOM, meta={})
+    view = _ok(V.inspect(plain, {"question": "q", "views": [{"label": "w", "frame": e.fid}]}))["views"][0]
+    assert "grid_nm" not in view
+
+
 # ── inspect ─────────────────────────────────────────────────────────────────
 def test_inspect_crop_and_enlarge_sizes(arch):
     r = V.inspect(arch, {"question": "what is there?", "views": [

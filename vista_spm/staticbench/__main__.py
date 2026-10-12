@@ -124,6 +124,7 @@ def _cmd_qa(a) -> int:
         raise SystemExit("qa needs --dataset <dir>")
     if a.driver == "claude":
         return _qa_claude(a, dataset)
+    from ..arms import with_options
     from .qa_host import QAHost
 
     if not a.item:
@@ -134,7 +135,8 @@ def _cmd_qa(a) -> int:
     import time as _time
 
     work = Path(a.work) if a.work else Path(dataset) / "_qa" / a.item / _time.strftime("%Y%m%dT%H%M%S")
-    host = QAHost(items[a.item], dataset, work, arm=a.arm)
+    host = QAHost(items[a.item], dataset, work,
+                  arm=with_options(a.arm, grid=None if a.grid is None else a.grid == "on"))
     text, images = host.initial_message()
     print(text)
     print(f"\n[{len(images)} image(s): " + ", ".join(f"{im.label} {len(im.png)} B" for im in images) + "]")
@@ -161,7 +163,8 @@ def _qa_claude(a, dataset: str) -> int:
     summary = run_claude_items(dataset, a.out, ids=ids, tools=a.tools, model=a.model, effort=a.effort,
                                budget_usd=a.budget_usd, segment_cap_usd=a.segment_cap_usd,
                                max_tool_calls=a.max_tool_calls, preflight=a.preflight,
-                               retry_unanswered=a.retry_unanswered)
+                               retry_unanswered=a.retry_unanswered,
+                               grid=None if a.grid is None else a.grid == "on")
     scored = score_out(dataset, a.out)
     print(json.dumps({"run": summary, "scores": scored}, indent=1, default=str))
     if summary.get("stopped_for_auth"):
@@ -222,6 +225,8 @@ def main(argv: list[str] | None = None) -> int:
     q.add_argument("--segment-cap-usd", type=float, default=2.0,
                    help="claude: --max-budget-usd for each Claude Code process (also limited by what is left)")
     q.add_argument("--max-tool-calls", type=int, default=60)
+    q.add_argument("--grid", choices=("on", "off"), default=None,
+                   help="metric grid on the frames (default: the arm's; off = as the 2026-10 pilot and hard runs)")
     q.add_argument("--preflight", choices=("first", "all", "none"), default="first")
     q.add_argument("--retry-unanswered", action="store_true",
                    help="claude: run again the items whose recorded answer is null")

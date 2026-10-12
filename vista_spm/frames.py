@@ -709,6 +709,85 @@ def upscale(img: np.ndarray, s: int) -> np.ndarray:
     return np.repeat(np.repeat(img, s, axis=0), s, axis=1)
 
 
+# ── grid (graph paper) ──────────────────────────────────────────────────────
+# VISTA darkens every cell boundary of an ARC frame to 3/4: graph paper to count cells on. An
+# STM frame has no cells, so this grid is metric: square cells of 1, 2 or 5 x 10^n nm counted
+# from the top-left corner of the frame's full image, finer as a view zooms in. Each line is one
+# image pixel wide, on the pixel that holds its exact position (evenly spaced to a pixel at any
+# magnification), blended a quarter of the way toward an amber no grey level has (darkening
+# would vanish on black and could pass for a trench).
+GRID_RGB = (255, 176, 0)
+GRID_COLOUR_NAME = "amber"
+GRID_MAX_CELLS = 16       # at most this many cells across the longer side of a view ...
+GRID_MIN_CELL_PX = 2      # ... and at least this many scan pixels per cell
+
+
+def nice_step(x: float) -> float:
+    """The smallest 1, 2 or 5 x 10^n that is >= ``x`` (``x`` > 0); 12 significant digits."""
+    x = float(x)
+    if not (x > 0 and math.isfinite(x)):
+        raise ValueError("nice_step needs a positive finite number")
+    n = math.floor(math.log10(x)) - 1       # one decade low: log10 may be an ulp off
+    while True:
+        for m in (1, 2, 5):
+            v = float(f"{m * 10.0 ** n:.12g}")
+            if v >= x * (1 - 1e-9):
+                return v
+        n += 1
+
+
+@dataclass(frozen=True)
+class Grid:
+    """The grid of one view: lines every ``spacing_nm`` from the frame's top-left corner, at
+    scan-pixel coordinates ``k * spacing_nm / nm_per_px_x`` (k = 0, 1, ...) along x and
+    likewise along y with ``nm_per_px_y``."""
+
+    spacing_nm: float
+    nm_per_px_x: float
+    nm_per_px_y: float
+
+
+def view_grid(view: "View", nm_per_px_x: float, nm_per_px_y: float) -> Grid:
+    """The grid for a view: the smallest nice spacing with at most :data:`GRID_MAX_CELLS`
+    cells across the view's longer side and at least :data:`GRID_MIN_CELL_PX` scan pixels per
+    cell."""
+    i0, j0, i1, j1 = view.native
+    px, py = float(nm_per_px_x), float(nm_per_px_y)
+    extent = max((i1 - i0) * px, (j1 - j0) * py)
+    return Grid(nice_step(max(extent / GRID_MAX_CELLS, GRID_MIN_CELL_PX * max(px, py))), px, py)
+
+
+def grid_lines(lo: int, hi: int, step_px: float, up: int, down: int, size: int) -> list[int]:
+    """Image pixels of the grid lines of a view spanning scan pixels ``[lo, hi)``: line ``k`` at
+    scan-pixel coordinate ``k * step_px`` lies on pixel ``floor((k * step_px - lo) * up / down
+    + 1e-9)``; lines at or past ``hi`` and pixels outside ``[0, size)`` are dropped."""
+    out: list[int] = []
+    k = max(0, math.ceil(lo / step_px - 1e-9))
+    while True:
+        pos = k * step_px
+        if pos >= hi - 1e-9:
+            return out
+        p = math.floor((pos - lo) * up / down + 1e-9)
+        if 0 <= p < size and (not out or p != out[-1]):
+            out.append(p)
+        k += 1
+
+
+def draw_grid(img: np.ndarray, view: "View", grid: Grid) -> np.ndarray:
+    """``img`` (a rendered view, L or RGB) as RGB with the grid drawn: every pixel on a line
+    becomes ``(3 * pixel + GRID_RGB) // 4`` per channel (:func:`grid_lines` places the lines)."""
+    i0, j0, i1, j1 = view.native
+    rgb = (np.repeat(img[:, :, None], 3, axis=2) if img.ndim == 2 else img).astype(np.int32)
+    H, W = rgb.shape[:2]
+    xs = grid_lines(i0, i1, grid.spacing_nm / grid.nm_per_px_x, view.up, view.down, W)
+    ys = grid_lines(j0, j1, grid.spacing_nm / grid.nm_per_px_y, view.up, view.down, H)
+    mask = np.zeros((H, W), dtype=bool)
+    mask[:, xs] = True
+    mask[ys, :] = True
+    rgb[mask] = (3 * rgb[mask] + np.asarray(GRID_RGB, dtype=np.int32)) // 4
+    return rgb.astype(np.uint8)
+
+
 def encode_png(img: np.ndarray) -> bytes:
     from PIL import Image
 
@@ -795,17 +874,21 @@ def plan_view(nx: int, ny: int, num: int, den: int, region: tuple[int, int, int,
 
 
 def render_values(z: np.ndarray, view: View, *, clip_pct: float = CLIP_PCT_DEFAULT,
-                  limits: tuple[float, float] | None = None) -> tuple[bytes, float, float]:
-    """PNG of the native crop of ``z`` (already flattened) described by ``view``; returns
-    ``(png, lo, hi)`` with the colour limits used (percentiles of the crop)."""
+                  limits: tuple[float, float] | None = None,
+                  grid: Grid | None = None) -> tuple[bytes, float, float]:
+    """PNG of the native crop of ``z`` (already flattened) described by ``view``, with
+    ``grid`` drawn when given; returns ``(png, lo, hi)`` with the colour limits used
+    (percentiles of the crop, which the grid does not change)."""
     i0, j0, i1, j1 = view.native
     crop = np.asarray(z, dtype=float)[j0:j1, i0:i1]
     lo, hi = limits if limits is not None else colour_limits(crop, clip_pct)
     if view.down > 1:
         crop = block_mean(crop, view.down)
     grey, nan = grey_levels(crop, lo, hi)
-    img = compose_rgb(grey, nan)
-    return encode_png(upscale(img, view.up)), float(lo), float(hi)
+    img = upscale(compose_rgb(grey, nan), view.up)
+    if grid is not None:
+        img = draw_grid(img, view, grid)
+    return encode_png(img), float(lo), float(hi)
 
 
 def view_corners_nm(geom: dict, view: View) -> dict:

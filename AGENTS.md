@@ -19,6 +19,7 @@ VISTA-SPM is an image-first visual harness for a multimodal model operating the 
 2. **The model-facing surface changes only on purpose.**
    - Treat tool names, descriptions, reply keys, units and decimals as experiment parameters.
    - Before and after a change, compare `python -m vista_spm tools --arm <arm> --json` for every arm.
+     With `--grid off` the surface must still equal that of the first matrix (m1), byte for byte.
    - Record any difference with the results it affects.
 3. **Billing stays on the subscription.**
    - `RunnerConfig.auth = "subscription"` strips `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from the Claude Code child process. It also aborts a session whose init reports an API key source.

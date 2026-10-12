@@ -148,7 +148,7 @@ NO_DEPS = Arm("t", "image", notes=False, history=True, inspect=False, read_value
 
 
 def make_host(tmp_path, arm=NO_DEPS, claims=("target_site",), max_sim_s=1000.0, notes=None, autosave=True,
-              **kw):
+              archive_override=None, **kw):
     session = tmp_path / "session"
     session.mkdir(parents=True, exist_ok=True)
     clock = FakeClock()
@@ -157,7 +157,7 @@ def make_host(tmp_path, arm=NO_DEPS, claims=("target_site",), max_sim_s=1000.0, 
     host = VistaHost(arm=arm, vista_dir=tmp_path / "vista", task="Move one atom.", claim_ids=list(claims),
                      ctx=ctx, clock=clock, session_dir=session, time_scale=20.0,
                      budget_probe=lambda: (clock.t, 0), max_sim_s=max_sim_s, max_cmds=None,
-                     archive=FakeArchive(), notes=notes, **kw)
+                     archive=archive_override or FakeArchive(), notes=notes, **kw)
     return host, ctx, clock
 
 
@@ -179,6 +179,38 @@ def test_tool_surface_follows_the_arm(tmp_path):
     assert tools["act"]["annotations"]["readOnlyHint"] is False
     assert tools["act"]["inputSchema"]["additionalProperties"] is False
     assert set(tools["act"]["inputSchema"]["properties"]["action"]["enum"]) >= {"scan", "move_atom", "wait"}
+
+
+def test_read_arm_is_vistas_tool_set_and_image_arms_draw_the_grid():
+    from vista_spm.arms import with_options
+
+    read = ARMS["read"]
+    assert (read.inspect, read.read_values, read.measure, read.notes, read.history) == (True, True, False, True, True)
+    assert all(a.grid for a in ARMS.values() if a.observation == "image")
+    assert not any(a.grid for a in ARMS.values() if a.observation != "image")
+    off = with_options("full", grid=False)
+    assert (off.name, off.grid, off.measure) == ("full-nogrid", False, True)
+    assert with_options("full", grid=True) is ARMS["full"]
+    assert with_options("text", grid=False) is ARMS["text"]
+    with pytest.raises(ValueError, match="no images"):
+        with_options("vigil-text", grid=True)
+    assert with_options("mem", display_max=512).display_max == 512
+
+
+def test_act_and_inspect_describe_the_grid_only_when_it_is_drawn(tmp_path):
+    from vista_spm.actions import GRID_PHRASE
+    from vista_spm.archive import Archive
+
+    arm = Arm("g", "image", notes=False, history=False, inspect=True, read_values=False, measure=False,
+              advisor=False)
+    tools = {}
+    for grid in (False, True):
+        host, _, _ = make_host(tmp_path / str(grid), arm=arm, archive_override=Archive(tmp_path / f"a{grid}", grid=grid))
+        tools[grid] = {t["name"]: t["description"] for t in host.list_tools()}
+    assert GRID_PHRASE not in tools[False]["act"] and GRID_PHRASE in tools[True]["act"]
+    assert tools[False]["act"].replace(" when the action produced one", " when the action produced one"
+                                       + GRID_PHRASE) == tools[True]["act"]
+    assert "grid" not in tools[False]["inspect"] and "grid_nm" in tools[True]["inspect"]
 
 
 def test_scan_produces_one_frame_and_an_image(tmp_path):

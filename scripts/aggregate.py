@@ -75,8 +75,8 @@ def main() -> int:
     groups = defaultdict(list)
     for r in rs:
         groups[(r["arm"], r["scenario"])].append(r)
-    arms = sorted({r["arm"] for r in rs}, key=lambda x: ["full", "mem", "notes", "img", "text", "vigil-text", "advisor"].index(x)
-                  if x in ["full", "mem", "notes", "img", "text", "vigil-text", "advisor"] else 99)
+    arms = sorted({r["arm"] for r in rs}, key=lambda x: ["full", "read", "mem", "notes", "img", "text", "vigil-text", "advisor"].index(x)
+                  if x in ["full", "read", "mem", "notes", "img", "text", "vigil-text", "advisor"] else 99)
     scen = sorted({r["scenario"] for r in rs})
     lines = ["| arm | scenario | n | claims verified | reproduced | tip diag correct | acts | sim used | tool calls | images | usd est |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]

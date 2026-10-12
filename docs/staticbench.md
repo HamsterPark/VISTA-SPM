@@ -112,6 +112,8 @@ One fresh `QAHost` per item (`<out>/<tools>/work/<id>/session<k>/`), an `rpc.Rpc
 makes the host terminal (outcome `done`). `--tools full` = inspect, read_values, the measurement
 tools and answer; `--tools image` = answer only (the images-only arm: the first message's images
 are all the model gets, and the message spells out the display-pixel → scan-nm conversion).
+Both arms draw the metric graph paper on the frames since 2026-10-12 (`docs/DESIGN.md` §5.2);
+`--grid off` shows them as the pilot1 and hard1 runs saw them and writes `<out>/<tools>-nogrid/`.
 Every item's `host.result()` plus the runner's usage (`driver.usage.cost_usd`, tokens, turns, tool
 counts, outcome) is appended to `<out>/<tools>/answers.jsonl` at once; reruns skip recorded items
 (`--retry-unanswered` re-runs null answers). No new item starts once the dollars recorded under

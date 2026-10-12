@@ -4,7 +4,7 @@ These files are records of past runs. They are aggregates only: episode ledgers,
 
 ## m1: the first ablation matrix (2026-10-09/10)
 
-The run covered four arms (full, mem, img, vigil-text) × three scenarios (P1, P4, P5) × seeds 0–2, with claude-opus-5-5 at effort high. All 36 episodes are valid.
+The run covered four arms (full, mem, img, vigil-text) × three scenarios (P1, P4, P5) × seeds 0–2, with claude-opus-5-5 at effort high. All 36 episodes are valid. The images had no graph paper (added 2026-10-12); `--grid off` reproduces them.
 
 | File | Contents |
 |---|---|
@@ -30,3 +30,5 @@ Points to keep in mind:
 | `staticbench/v1_manifest.json` | Generation parameters, item counts, class balance and difficulty mix of the v1 set. The frames themselves are regenerated with `generate --types all --seeds 0-9`. |
 | `staticbench/pilot1.md`, `.csv` | Claude pilot: 12 items, one per type, with tools and with images only. |
 | `staticbench/hard1.md`, `.csv` | Claude on the 37-item hard set, with tools (31) and with images only (23); the classical baseline scored 30. |
+
+The Claude runs saw the frames without graph paper (added 2026-10-12); `qa --grid off` reproduces them.

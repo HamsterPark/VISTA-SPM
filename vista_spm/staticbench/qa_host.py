@@ -128,7 +128,8 @@ class QAHost:
                 # an Archive re-opens what is there (crash recovery) and would number this
                 # item's frames after the old ones: frame k would no longer be frame_ids[k]
                 raise FileExistsError(f"{root} already holds an archive; give each QA session a fresh work_dir")
-            archive = Archive(root, display_max=self.display_max)
+            archive = Archive(root, display_max=self.display_max,
+                              grid=bool(getattr(self.arm, "grid", False)) and self.arm.observation == "image")
         self.archive = archive
         self.frame_ids: list[str] = []
         for rel in item["frames"]:
@@ -162,7 +163,7 @@ class QAHost:
             if view_tools is None:
                 from .. import viewtools as V
 
-                view_tools = V.VIEW_TOOLS if self.display_max == DISPLAY_MAX_DEFAULT else V.view_tools(self.display_max)
+                view_tools = V.view_tools(self.display_max, grid=bool(getattr(self.archive, "grid", False)))
             for name, (tdef, fn) in view_tools.items():
                 if (name == "inspect" and self.arm.inspect) or (name == "read_values" and self.arm.read_values):
                     t[name] = (tdef, fn)

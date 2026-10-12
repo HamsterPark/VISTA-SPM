@@ -28,6 +28,7 @@ MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIG
 - **动作：** V0 原语动作集。
 - **场景：** P1（Au(111) 鱼骨重构）、P4（在 Cu(111) 上搬运一个 Fe 原子）、P5（qPlus 力谱与 Sader–Jarvis 反演）。
 - **种子：** 0–2。
+- **图像：** 当时还没有格线。下面的方格纸是 2026-10-12 加的，`--grid off` 可以复现这些回合。
 - **判分：** STM-Bench 官方判分。
 
 | 臂 | 观测与工具 | 结论通过比例 | 完整复现 |
@@ -83,7 +84,8 @@ python -m vista_spm run
        claude ── stdio MCP ──► mcp_bridge.py（只用标准库）──► RpcServer ──► VistaHost
 ```
 
-- **观测：** 原始帧，按整数倍最近邻缩放。标签和数字放在图像旁边的文字里，不画进图像。VISTA 在 ARC 上渲染时还会画浅色格线，相当于一张方格纸；本移植在图上什么都不画。
+- **观测：** 原始帧，按整数倍最近邻缩放。标签和数字放在图像旁边的文字里。
+- **方格纸：** 扫描图上唯一画的东西，相当于 VISTA 在 ARC 帧上画的格线。它是一层淡琥珀色的纳米方格，格距取 1、2 或 5 × 10ⁿ nm，从整帧左上角起算；每个视野最多 16 格，所以放大后格子会变细。格距 `grid_nm` 写在每张图的标签里，`--grid off` 可以关掉。
 - **视觉记忆：** 每一帧、每个通道、每个扫描方向和每次中途快照都无损归档，各有固定 id。
   - `inspect` 可以对任一已归档区域、通道或去背景方式裁剪放大。
   - `read_values` 返回精确数值。
@@ -97,6 +99,7 @@ python -m vista_spm run
 | 臂 | 观测 | act 和两个报告工具之外的工具 |
 |---|---|---|
 | full | 图像 | 历史、笔记、inspect、read_values、测量工具 |
+| read | 图像 | 历史、笔记、inspect、read_values（VISTA 的工具全集） |
 | mem | 图像 | 历史、笔记、inspect |
 | notes | 图像 | 历史、笔记 |
 | img | 图像 | 无 |
@@ -132,14 +135,14 @@ Windows 上还要设置 `PYTHONUTF8=1`。
 ```bash
 python -m vista_spm preflight                          # 检查 Claude Code 与 MCP 桥，一次低成本调用
 python -m vista_spm tools --arm full [--qplus]         # 打印某个臂向模型展示的工具
-python -m vista_spm run --scenario P4_atom --seeds 0 --arm mem [--out DIR] [--run ID]
+python -m vista_spm run --scenario P4_atom --seeds 0 --arm mem [--out DIR] [--run ID] [--grid off]
 python -m vista_spm replay <回合目录> --single-file    # 为完成的回合生成 STM-Bench 回放页面
 
 python -m vista_spm.staticbench generate --out tmp/staticbench/v1 --types all --seeds 0-9
 python -m vista_spm.staticbench qa --driver claude --dataset tmp/staticbench/v1 --out tmp/staticbench/run1 ...
 ```
 
-输出默认写到 `STM_BENCH_DATA`（`~/stm_bench`）。跑消融矩阵前先冻结代码，再从快照目录运行，见 [scripts/README.md](scripts/README.md)：
+输出默认写到 `STM_BENCH_DATA`（`~/stm_bench`）。`--grid off` 不画方格纸，回合目录名记为 `<臂>-nogrid`；`tools`、`preflight`、`run_matrix.py` 和静态基准的 `qa` 都支持这个选项。跑消融矩阵前先冻结代码，再从快照目录运行，见 [scripts/README.md](scripts/README.md)：
 
 ```bash
 python scripts/snapshot.py tmp/code/m2

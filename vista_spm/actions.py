@@ -514,15 +514,22 @@ OBSERVATION_PHRASE = {
     "vigil": ("a text summary of a new scan frame from MAST's automated detectors and learned vision model "
               "(no image), or a new spectrum as a numeric table, when the action produced one"),
 }
+#: appended to the image phrase when scan images carry the metric grid (frames.view_grid)
+GRID_PHRASE = (" (on a scan image, faint amber lines draw a square grid every grid_nm nm, counted from the "
+               "frame's top-left corner; grid_nm is in the image's label)")
 
 
-def act_description(names: list[str], observation: str = "image") -> str:
-    """The model-facing description of ``act`` for the given action names and observation mode."""
+def act_description(names: list[str], observation: str = "image", grid: bool = False) -> str:
+    """The model-facing description of ``act`` for the given action names and observation mode;
+    ``grid``: scan images carry the metric grid."""
+    phrase = OBSERVATION_PHRASE.get(observation, OBSERVATION_PHRASE["image"])
+    if grid and observation == "image":
+        phrase += GRID_PHRASE
     lines = [
         "Execute exactly one instrument action. This is the only tool that changes the instrument; each call "
         "counts as one action and consumes instrument time. The result reports what the controller returned, "
         "the instrument state afterwards, the ids of any new frames or spectra, the instrument time used so "
-        f"far, and {OBSERVATION_PHRASE.get(observation, OBSERVATION_PHRASE['image'])}. You observe this result "
+        f"far, and {phrase}. You observe this result "
         "before another action can execute.",
         "Units: nm, V, pA, s, nm/s. A position is {\"x_nm\": .., \"y_nm\": ..} in scan-frame nm (the coordinates "
         "report_result uses), or {\"frame\": \"t0007.s0\", \"x\": .., \"y\": ..} in display pixels of an archived "

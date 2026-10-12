@@ -1,8 +1,8 @@
 """VISTA-SPM command line.
 
     python -m vista_spm run --scenario P4_atom --seeds 0 --arm full [--model claude-opus-5-5]
-                                 [--effort high] [--out DIR] [--run ID] [--display-max 768]
-    python -m vista_spm tools --arm full [--qplus] [--json]      # what the model would see
+                                 [--effort high] [--out DIR] [--run ID] [--display-max 768] [--grid off]
+    python -m vista_spm tools --arm full [--qplus] [--json] [--grid off]   # what the model would see
     python -m vista_spm preflight [--model ..] [--effort low]   # Claude Code + MCP sanity check
 
 One episode per ``run`` invocation and seed, in this process (MAST's runtime holds
@@ -20,7 +20,7 @@ from pathlib import Path
 from stmbench.cli import _csv, _resolve
 from stmbench.paths import data_path
 
-from .arms import ARMS, get_arm
+from .arms import ARMS, Arm, with_options
 
 
 def cmd_run(a) -> int:
@@ -38,10 +38,10 @@ def cmd_run(a) -> int:
             sc = Scenario.load(path)
             res = run_vista_episode(sc, seed=seed, arm=a.arm, model=a.model, effort=a.effort, out=a.out,
                                     run_id=a.run, time_scale=a.time_scale, max_acts=a.max_acts,
-                                    display_max=a.display_max, runner_options=options)
+                                    display_max=a.display_max, grid=_grid(a), runner_options=options)
             sr = res.skill_result or {}
             rows.append(res)
-            print(f"{sc.id:28s} seed={seed} arm={a.arm} success={res.success} "
+            print(f"{sc.id:28s} seed={seed} arm={(res.skill_result or {}).get('arm', a.arm)} success={res.success} "
                   f"verified={res.claims_verified}/{res.claims_total} outcome={sr.get('outcome')} "
                   f"acts={sr.get('acts')} sim={res.sim_consumed_s:.0f}s wall={res.wall_s:.0f}s "
                   f"usd≈{(sr.get('billing') or {}).get('usd_est')} → {res.out_dir}", flush=True)
@@ -50,7 +50,11 @@ def cmd_run(a) -> int:
     return 0
 
 
-def _offline_host(arm_name: str, qplus: bool, claim_ids: list[str]):
+def _grid(a) -> bool | None:
+    return None if getattr(a, "grid", None) is None else a.grid == "on"
+
+
+def _offline_host(arm: Arm, qplus: bool, claim_ids: list[str]):
     """A VistaHost on fakes, only to list what the model would be offered."""
     from .host import VistaHost
 
@@ -65,7 +69,7 @@ def _offline_host(arm_name: str, qplus: bool, claim_ids: list[str]):
 
     tmp = Path(tempfile.mkdtemp(prefix="vista_tools_"))
     (tmp / "session").mkdir()
-    return VistaHost(arm=get_arm(arm_name), vista_dir=tmp / "vista", task="(offline listing)",
+    return VistaHost(arm=arm, vista_dir=tmp / "vista", task="(offline listing)",
                      claim_ids=claim_ids, ctx=_NoCtx(), clock=_Clock(), session_dir=tmp / "session",
                      time_scale=1.0, budget_probe=lambda: (0.0, 0), is_qplus=qplus)
 
@@ -73,13 +77,14 @@ def _offline_host(arm_name: str, qplus: bool, claim_ids: list[str]):
 def cmd_tools(a) -> int:
     from .prompts import system_prompt
 
-    host = _offline_host(a.arm, a.qplus, _csv(a.claims) or ["example_claim"])
+    arm = with_options(a.arm, grid=_grid(a))
+    host = _offline_host(arm, a.qplus, _csv(a.claims) or ["example_claim"])
     tools = host.list_tools()
     if a.json:
-        print(json.dumps({"system_prompt": system_prompt(get_arm(a.arm)), "tools": tools},
+        print(json.dumps({"system_prompt": system_prompt(arm), "tools": tools},
                          ensure_ascii=False, indent=1))
         return 0
-    print(system_prompt(get_arm(a.arm)))
+    print(system_prompt(arm))
     total = 0
     for t in tools:
         n = len(t["description"]) + len(json.dumps(t["inputSchema"]))
@@ -94,13 +99,14 @@ def cmd_preflight(a) -> int:
     from .prompts import system_prompt
     from .rpc import RpcServer
 
-    host = _offline_host(a.arm, False, ["example_claim"])
+    arm = with_options(a.arm, grid=_grid(a))
+    host = _offline_host(arm, False, ["example_claim"])
     io = Path(tempfile.mkdtemp(prefix="vista_preflight_"))
     rpc = RpcServer(host, log_path=io / "rpc.jsonl")
     rpc.start()
     try:
         runner = ClaudeCodeRunner(host, rpc, RunnerConfig(model=a.model, effort=a.effort,
-                                                          system_prompt=system_prompt(get_arm(a.arm)), io_dir=io))
+                                                          system_prompt=system_prompt(arm), io_dir=io))
         out = runner.preflight()
     finally:
         rpc.stop()
@@ -143,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--time-scale", type=float, default=None)
     r.add_argument("--max-acts", type=int, default=400)
     r.add_argument("--display-max", type=int, default=None)
+    r.add_argument("--grid", choices=["on", "off"], default=None,
+                   help="metric grid on scan images (default: the arm's; off reproduces m1 as <arm>-nogrid)")
     r.add_argument("--no-preflight", action="store_true")
     r.add_argument("--runner-opt", action="append", help="RunnerConfig field=value (JSON value), repeatable")
     r.set_defaults(fn=cmd_run)
@@ -151,11 +159,13 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--qplus", action="store_true")
     t.add_argument("--claims", default="")
     t.add_argument("--json", action="store_true")
+    t.add_argument("--grid", choices=["on", "off"], default=None)
     t.set_defaults(fn=cmd_tools)
     p = sub.add_parser("preflight", help="check Claude Code + the MCP bridge end to end (one cheap call)")
     p.add_argument("--arm", default="full", choices=sorted(ARMS))
     p.add_argument("--model", default="claude-opus-5-5")
     p.add_argument("--effort", default="low")
+    p.add_argument("--grid", choices=["on", "off"], default=None)
     p.set_defaults(fn=cmd_preflight)
     rp = sub.add_parser("replay", help="build the stmbench replay page for a finished VISTA run")
     rp.add_argument("run_dir")

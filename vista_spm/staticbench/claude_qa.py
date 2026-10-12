@@ -127,14 +127,16 @@ def run_claude_items(dataset: str | Path, out_dir: str | Path, *, ids: list[str]
                      model: str = "claude-opus-5-5", effort: str = "high", budget_usd: float = 15.0,
                      segment_cap_usd: float = 2.0, max_tool_calls: int = 60, preflight: str = "first",
                      retry_unanswered: bool = False, runner_overrides: dict | None = None,
-                     log: Callable[[str], None] | None = None) -> dict:
+                     grid: bool | None = None, log: Callable[[str], None] | None = None) -> dict:
     """Run ``ids`` through Claude Code with the ``tools`` arm; returns a summary of this call.
 
     ``preflight``: ``"first"`` runs the runner's READY preflight before the first item this call
     starts, ``"all"`` before every item, ``"none"`` never. Items already in the answers file are
     skipped; with ``retry_unanswered`` those whose recorded answer is null run again (the newer
     line wins when scoring). ``runner_overrides`` are passed to ``RunnerConfig`` last (tests point
-    ``claude_bin`` at a fake)."""
+    ``claude_bin`` at a fake). ``grid=False`` shows the frames without the metric grid (as the
+    pilot and hard runs of 2026-10-09/10 saw them); its answers go to ``<tools>-nogrid/``."""
+    from ..arms import with_options
     from ..claude_runner import ClaudeCodeRunner, RunnerConfig
     from ..rpc import RpcServer
 
@@ -144,7 +146,8 @@ def run_claude_items(dataset: str | Path, out_dir: str | Path, *, ids: list[str]
     # absolute: Claude Code runs in its own cwd (<io_dir>/cwd), so every path the runner writes
     # into its command line (settings, MCP config, system prompt) must not be relative
     dataset, out_dir = Path(dataset).resolve(), Path(out_dir).resolve()
-    arm_dir = out_dir / tools
+    arm = with_options(ARM_FOR_TOOLS[tools], grid=grid)
+    arm_dir = out_dir / (tools if arm.grid else f"{tools}-nogrid")
     arm_dir.mkdir(parents=True, exist_ok=True)
     answers_path = arm_dir / ANSWERS_NAME
     items = {it["id"]: it for it in I.load_items(dataset)}
@@ -158,7 +161,7 @@ def run_claude_items(dataset: str | Path, out_dir: str | Path, *, ids: list[str]
             infra[str(row.get("id"))] = (row.get("driver") or {}).get("infra_error")
     done = {i for i, a in recorded.items()
             if a is not None or (not retry_unanswered and not infra.get(i))}
-    summary: dict[str, Any] = {"tools": tools, "arm": ARM_FOR_TOOLS[tools], "model": model, "effort": effort,
+    summary: dict[str, Any] = {"tools": tools, "arm": arm.name, "model": model, "effort": effort,
                                "answers": str(answers_path), "run": [], "skipped_done": sorted(done & set(ids)),
                                "stopped_for_budget": False, "stopped_for_api_error": None, "stopped_for_auth": None,
                                "spent_before_usd": round(spent_usd(out_dir), 6)}
@@ -176,7 +179,7 @@ def run_claude_items(dataset: str | Path, out_dir: str | Path, *, ids: list[str]
         base = arm_dir / "work" / iid
         n_prev = sum(1 for p in base.iterdir() if p.is_dir()) if base.is_dir() else 0
         work = base / f"session{n_prev}"
-        host = QAHost(item, dataset, work / "host", arm=ARM_FOR_TOOLS[tools], max_tool_calls=max_tool_calls)
+        host = QAHost(item, dataset, work / "host", arm=arm, max_tool_calls=max_tool_calls)
         settings = runner_settings(images_only=host.images_only, model=model, effort=effort,
                                    io_dir=work / "claude_io",
                                    preflight=(preflight == "all") or (preflight == "first" and first))

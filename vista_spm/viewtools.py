@@ -10,7 +10,9 @@ Both tools are read-only: they never touch the instrument, only the episode
   display pixels of the frame's full image. A region is widened to whole scan pixels,
   enlarged by the largest whole number of image pixels per scan pixel that fits
   ``display_max`` (never smoothed, never resampled unevenly), one image per view, in
-  request order. Spectra render as plots; derived images are cropped as stored.
+  request order. With ``Archive(grid=True)`` each scan view carries the metric grid sized
+  for that view (``frames.view_grid``) and the reply gives ``grid_nm``. Spectra render as
+  plots; derived images are cropped as stored.
 * ``read_values(question, views[1..64])`` samples archived physical values at bin centers
   (``x + ((2c+1)*w)//(2*C)``, VISTA's rule), at most 4096 samples per call, in the model
   unit carried by the key (``values_pm``, ``values_pa``, ...), rounded to the channel's
@@ -249,7 +251,7 @@ QUESTION_SCHEMA = {"type": "string", "minLength": 1, "maxLength": MAX_QUESTION_C
                    "description": "The visual question these views should answer."}
 
 
-def make_inspect_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
+def make_inspect_tool(display_max: int = DISPLAY_MAX_DEFAULT, grid: bool = False) -> ToolDef:
     dm = int(display_max)
     view = {"type": "object", "additionalProperties": False, "required": ["label", "frame"],
             "properties": {
@@ -277,6 +279,11 @@ def make_inspect_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
               "properties": {"question": QUESTION_SCHEMA,
                              "views": {"type": "array", "minItems": 1, "maxItems": MAX_INSPECT_VIEWS,
                                        "items": view}}}
+    drawn = ("dark blue; nothing is drawn on them." if not grid else
+             f"dark blue. Faint {F.GRID_COLOUR_NAME} lines draw a square grid every grid_nm nm, counted from "
+             "the top-left corner of the frame's full image along its own x and y, finer when you zoom in; "
+             "nothing else is drawn on them.")
+    spacing = "" if not grid else " the grid spacing (grid_nm),"
     desc = (
         "Look again at archived frames without changing the instrument. Each view re-renders one frame "
         "from its archived values: a saved scan, a partial scan, a spectrum or a derived image. For a scan, "
@@ -286,13 +293,13 @@ def make_inspect_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
         "id). The region is cropped exactly, widened to whole scan pixels, and enlarged by the largest whole "
         f"number of image pixels per scan pixel that fits {dm}x{dm}, without smoothing. Images are gray "
         "(black = low, white = high, contrast from the selected region); pixels never acquired are flat "
-        "dark blue; nothing is drawn on them. A spectrum view is a line plot (x_col, y_col, x_range instead "
+        f"{drawn} A spectrum view is a line plot (x_col, y_col, x_range instead "
         "of region); a derived image is cropped as stored. State the visual question these views should "
         "answer and give each view a short label. The views are returned in request order, one image each; "
         "the reply text gives each view's region in display pixels (region_px), the scan-frame nm of its "
-        "corners (corners_nm), the magnification, nm per image pixel, and the values shown as black and "
-        "white with the unit in the key (black_pm / white_pm for Z, black_pa / white_pa for current). Your "
-        "question and labels remain in this call."
+        f"corners (corners_nm), the magnification, nm per image pixel,{spacing} and the values shown as black "
+        "and white with the unit in the key (black_pm / white_pm for Z, black_pa / white_pa for current). "
+        "Your question and labels remain in this call."
     )
     return ToolDef(name="inspect", title="Inspect archived frames", description=desc, input_schema=schema,
                    read_only=True, idempotent=True)
@@ -412,6 +419,8 @@ def _view_summary(i: int, label: str, e: FrameEntry, meta: dict) -> dict:
             out["highpass_nm"] = meta["highpass_nm"]
         out.update({k: meta[k] for k in ("region_px", "native_px", "image_size_px", "magnification",
                                           "image_px_per_scan_px", "nm_per_image_px", "corners_nm")})
+        if meta.get("grid_nm") is not None:
+            out["grid_nm"] = meta["grid_nm"]
         out[fmt.key("black")] = meta["black"]
         out[fmt.key("white")] = meta["white"]
         out[fmt.key("min")] = meta["min"]
@@ -553,7 +562,9 @@ VIEW_TOOLS: dict[str, tuple[ToolDef, Callable[[Archive, dict], ToolReply]]] = {
 }
 
 
-def view_tools(display_max: int = DISPLAY_MAX_DEFAULT) -> dict[str, tuple[ToolDef, Callable[[Archive, dict], ToolReply]]]:
-    """``VIEW_TOOLS`` with schemas sized for another ``display_max``."""
-    return {"inspect": (make_inspect_tool(display_max), inspect),
+def view_tools(display_max: int = DISPLAY_MAX_DEFAULT,
+               grid: bool = False) -> dict[str, tuple[ToolDef, Callable[[Archive, dict], ToolReply]]]:
+    """``VIEW_TOOLS`` with schemas sized for another ``display_max``, and with ``inspect``
+    describing the grid when the archive draws one (``Archive(grid=True)``)."""
+    return {"inspect": (make_inspect_tool(display_max, grid), inspect),
             "read_values": (make_read_values_tool(display_max), read_values)}

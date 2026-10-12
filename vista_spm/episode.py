@@ -28,7 +28,7 @@ from stmbench.harness.episode import (BILLING_UNKNOWN, EpisodeResult, _budget_ca
 from stmbench.trackB.truth_criteria import judge
 from stmsim.scenario import Scenario
 
-from .arms import Arm, get_arm
+from .arms import Arm, with_options
 from .host import VistaHost
 from .replay_compat import replay_events
 
@@ -46,14 +46,13 @@ def vista_run_dir(out: str | Path, scenario_id: str, seed: int, arm: str, model:
 def run_vista_episode(scenario: Scenario, *, seed: int, arm: str | Arm, model: str = "claude-opus-5-5",
                       effort: str = "high", out: str | Path, run_id: str | None = None,
                       time_scale: float | None = None, max_acts: int = 400, display_max: int | None = None,
-                      vision_backend: str | None = None, runner_options: dict | None = None,
+                      grid: bool | None = None, vision_backend: str | None = None,
+                      runner_options: dict | None = None,
                       driver: Callable[[VistaHost], dict] | None = None,
                       on_host: Callable[[VistaHost], None] | None = None) -> EpisodeResult:
     from stmbench.harness.runtime_host import RuntimeHost
 
-    arm_obj = get_arm(arm) if isinstance(arm, str) else arm
-    if display_max is not None:
-        arm_obj = dataclasses.replace(arm_obj, display_max=int(display_max))
+    arm_obj = with_options(arm, display_max=display_max, grid=grid)
     mode = f"V-{arm_obj.name}"
     rid = run_id or default_run_id()
     out_dir = claim_run_dir(vista_run_dir(out, scenario.id, seed, arm_obj.name, model, effort, rid))
@@ -192,6 +191,7 @@ def _skill_result(vhost: VistaHost | None, run_info: dict, mode: str, model: str
                         "cache_creation_tokens": usage.get("cache_creation_input_tokens")})
     b = vhost._budget()
     return {"driver": True, "mode": mode, "model_id": model, "effort": effort, "arm": vhost.arm.name,
+            "arm_config": dataclasses.asdict(vhost.arm),
             "outcome": vhost.outcome, "stop_reason": vhost.stop_reason, "turns": vhost.turn,
             "acts": vhost.acts, "tool_calls": vhost.tool_calls, "gate_fallbacks": vhost.gate_fallbacks,
             "model_calls": usage.get("num_turns") if usage else None,

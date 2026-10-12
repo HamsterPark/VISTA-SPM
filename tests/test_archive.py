@@ -116,6 +116,28 @@ def test_default_render_label_and_observation(tmp_path):
     assert 'kind="historical"' in arch.observation(e.fid, kind="historical")[0].label
 
 
+def test_grid_archive_draws_and_labels_the_grid(tmp_path):
+    geom = {"cx_nm": 0.0, "cy_nm": 0.0, "w_nm": 70.0, "h_nm": 70.0, "angle_deg": 0.0}
+    arr = _arrays(ny=256, nx=256)
+    plain, lined = Archive(tmp_path / "plain"), Archive(tmp_path / "grid", grid=True)
+    e1 = plain.add_partial(1, arr, geometry=geom, meta={})
+    e2 = lined.add_partial(1, arr, geometry=geom, meta={})
+    (b1,), (b2,) = plain.observation(e1.fid), lined.observation(e2.fid)
+    assert "grid_nm" not in b1.label and 'grid_nm="5"' in b2.label
+    a, b = _png_rgb(b1.png).astype(int), _png_rgb(b2.png).astype(int)
+    lines = F.grid_lines(0, 256, 5.0 / (70 / 256), 3, 1, 768)
+    on = np.zeros(a.shape[:2], dtype=bool)
+    on[:, lines] = True
+    on[lines, :] = True
+    assert (a[~on] == b[~on]).all() and (b[on] == (3 * a[on] + np.asarray(F.GRID_RGB)) // 4).all()
+    # a zoomed render gets its own, finer grid; the meta says which
+    _, meta = lined.render(e2.fid, region={"x": 300, "y": 300, "width": 96, "height": 96}, label_kind="inspection")
+    assert meta["grid_nm"] == 1.0 and 'grid_nm="1"' in meta["label"]
+    assert plain.render(e1.fid)[1]["grid_nm"] is None
+    # the colour scale is the data's, not the grid's
+    assert plain.render(e1.fid)[1]["black"] == lined.render(e2.fid)[1]["black"]
+
+
 def test_render_region_channel_and_meta(tmp_path):
     arch = Archive(tmp_path)
     e = arch.add_partial(0, _arrays(), geometry=GEOM, meta={})

@@ -263,12 +263,13 @@ def _region_tuple(region: Any) -> tuple[int, int, int, int] | None:
 class Archive:
     """Per-episode lossless frame store (see the module docstring)."""
 
-    def __init__(self, root: Path | str, *, display_max: int = DISPLAY_MAX_DEFAULT):
+    def __init__(self, root: Path | str, *, display_max: int = DISPLAY_MAX_DEFAULT, grid: bool = False):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.display_max = int(display_max)
         if self.display_max < 64:
             raise ValueError("display_max must be at least 64")
+        self.grid = bool(grid)              # draw the metric grid on scan images (frames.view_grid)
         self._lock = threading.RLock()
         self._entries: dict[str, FrameEntry] = {}
         self._order: list[str] = []
@@ -599,13 +600,14 @@ class Archive:
                        highpass_nm=highpass_nm)
         num, den = e.scale_pair
         view = F.plan_view(e.nx, e.ny, num, den, region, display_max)
-        png, lo, hi = F.render_values(zf, view, clip_pct=clip_pct)
+        nmx = float(e.nm_per_px)
+        grid = F.view_grid(view, nmx, nm_y or nmx) if self.grid and nmx > 0 else None
+        png, lo, hi = F.render_values(zf, view, clip_pct=clip_pct, grid=grid)
         fmt = self.fmt(e, ch)
         i0, j0, i1, j1 = view.native
         crop = zf[j0:j1, i0:i1]
         fin = crop[np.isfinite(crop)]
         x, y, w, h = view.region_px
-        nmx = float(e.nm_per_px)
         attrs: dict[str, Any] = dict(label_attrs or {})
         attrs.update({"frame": e.fid, "channel": ch, "direction": direction, "flatten": flatten})
         if flatten == "highpass":
@@ -615,6 +617,8 @@ class Archive:
                       "field_nm": f"{(i1 - i0) * nmx:.4g}x{(j1 - j0) * nm_y:.4g}"})
         if region is not None:
             attrs["magnification"] = f"{view.magnification:.4g}"
+        if grid is not None:
+            attrs["grid_nm"] = f"{grid.spacing_nm:g}"
         attrs[F.range_attr(ch, fmt.unit)] = (f"{F.fmt_num(lo * fmt.factor, fmt.decimals)}.."
                                              f"{F.fmt_num(hi * fmt.factor, fmt.decimals)}")
         if e.acquired_rows is not None and e.acquired_rows < e.ny:
@@ -627,6 +631,7 @@ class Archive:
             "image_px_per_scan_px": view.up if view.down == 1 else round(1.0 / view.down, 6),
             "nm_per_image_px": round(nmx * view.down / view.up, 6),
             "corners_nm": F.view_corners_nm(e.geometry, view),
+            "grid_nm": None if grid is None else grid.spacing_nm,
             "unit": fmt.unit, "fmt": fmt,
             "black": fmt.value(lo), "white": fmt.value(hi),
             "min": fmt.value(fin.min()) if fin.size else None, "max": fmt.value(fin.max()) if fin.size else None,

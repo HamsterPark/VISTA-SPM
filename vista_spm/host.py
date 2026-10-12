@@ -71,7 +71,8 @@ class VistaHost:
 
         if archive is None:
             from .archive import Archive
-            archive = Archive(self.vista_dir / "archive", display_max=arm.display_max)
+            archive = Archive(self.vista_dir / "archive", display_max=arm.display_max,
+                              grid=arm.grid and arm.observation == "image")
         self.archive = archive
         if notes is None and arm.notes:
             from .notes import Notes
@@ -136,7 +137,8 @@ class VistaHost:
     # ── tools ───────────────────────────────────────────────────────────────
     def _build_tools(self) -> dict[str, tuple[ToolDef, Callable[[dict], ToolReply]]]:
         t: dict[str, tuple[ToolDef, Callable[[dict], ToolReply]]] = {}
-        t["act"] = (ToolDef("act", act_description(self.actions, self.arm.observation), act_schema(self.actions),
+        grid = bool(getattr(self.archive, "grid", False))
+        t["act"] = (ToolDef("act", act_description(self.actions, self.arm.observation, grid), act_schema(self.actions),
                             title="Instrument action", read_only=False, destructive=True), self._act)
         if self.claim_ids:
             t[RESULT_TOOL_NAME] = (ToolDef(RESULT_TOOL_NAME, (
@@ -161,8 +163,8 @@ class VistaHost:
             for name in NOTES_TOOL_NAMES:
                 t[name] = (NOTES_TOOLS[name], self._notes_handler(name))
         if self.arm.inspect or self.arm.read_values:
-            from .viewtools import VIEW_TOOLS
-            for name, (tdef, fn) in VIEW_TOOLS.items():
+            from .viewtools import view_tools
+            for name, (tdef, fn) in view_tools(self.arm.display_max, grid=grid).items():
                 if (name == "inspect" and self.arm.inspect) or (name == "read_values" and self.arm.read_values):
                     t[name] = (tdef, self._archive_handler(fn))
         if self.arm.measure:

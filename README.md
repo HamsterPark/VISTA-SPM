@@ -29,6 +29,7 @@ Setup:
 - **Actions:** the V0 primitive actions.
 - **Scenarios:** P1 (Au(111) herringbone), P4 (positioning an Fe atom on Cu(111)) and P5 (qPlus force spectroscopy with Sader–Jarvis inversion).
 - **Seeds:** 0–2.
+- **Images:** no grid yet. The graph paper below was added on 2026-10-12; `--grid off` reproduces these runs.
 - **Scoring:** the official STM-Bench judge.
 
 | Arm | Observation and tools | Claims verified | Fully reproduced |
@@ -84,7 +85,8 @@ python -m vista_spm run
        claude ── stdio MCP ──► mcp_bridge.py (stdlib only) ──► RpcServer ──► VistaHost
 ```
 
-- **Observation:** raw frames with whole-pixel nearest-neighbour scaling. Labels and numbers travel in text next to the image, never drawn inside it. VISTA's ARC renderer also draws faint cell grid lines, a sheet of graph paper; this port draws nothing on the image.
+- **Observation:** raw frames with whole-pixel nearest-neighbour scaling. Labels and numbers travel in text next to the image.
+- **Graph paper:** the only thing drawn on a scan image, as VISTA draws cell lines on its ARC frames. It is a faint amber metric grid of 1, 2 or 5 × 10ⁿ nm squares, counted from the frame's top-left corner, with at most 16 cells across a view, so zoomed views get finer squares. The spacing `grid_nm` is in each image's label. `--grid off` removes it.
 - **Visual memory:** every frame, channel, direction and partial snapshot is archived losslessly, with a stable id.
   - `inspect` crops and enlarges any archived region, channel or flattening.
   - `read_values` returns exact numbers.
@@ -98,6 +100,7 @@ Each arm has these tools:
 | Arm | Observation | Tools besides act and the two report tools |
 |---|---|---|
 | full | image | history, notes, inspect, read_values, measurement |
+| read | image | history, notes, inspect, read_values (VISTA's tool set) |
 | mem | image | history, notes, inspect |
 | notes | image | history, notes |
 | img | image | none |
@@ -133,14 +136,14 @@ Keep it.
 ```bash
 python -m vista_spm preflight                          # Claude Code + MCP bridge, one cheap call
 python -m vista_spm tools --arm full [--qplus]         # the tool surface an arm shows the model
-python -m vista_spm run --scenario P4_atom --seeds 0 --arm mem [--out DIR] [--run ID]
+python -m vista_spm run --scenario P4_atom --seeds 0 --arm mem [--out DIR] [--run ID] [--grid off]
 python -m vista_spm replay <run-dir> --single-file     # STM-Bench replay page for a finished run
 
 python -m vista_spm.staticbench generate --out tmp/staticbench/v1 --types all --seeds 0-9
 python -m vista_spm.staticbench qa --driver claude --dataset tmp/staticbench/v1 --out tmp/staticbench/run1 ...
 ```
 
-Run outputs default to `STM_BENCH_DATA` (`~/stm_bench`). For an ablation matrix, freeze the code first and run from the snapshot ([scripts/README.md](scripts/README.md)):
+Run outputs default to `STM_BENCH_DATA` (`~/stm_bench`). `--grid off` (also on `tools`, `preflight`, `run_matrix.py` and the static benchmark's `qa`) renders without the graph paper and files the runs under `<arm>-nogrid`. For an ablation matrix, freeze the code first and run from the snapshot ([scripts/README.md](scripts/README.md)):
 
 ```bash
 python scripts/snapshot.py tmp/code/m2

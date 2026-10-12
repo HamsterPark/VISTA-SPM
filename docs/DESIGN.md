@@ -18,10 +18,10 @@ instrument and hidden truth; STM-Bench's judge scores the episode.
 
 Principles carried over from VISTA:
 
-1. Images are the observation. All labels and numbers travel in adjacent text blocks.
-   VISTA's ARC renderer draws faint cell grid lines (every 8 px darkened to 3/4), a sheet
-   of graph paper; this port draws nothing inside an image. The STM counterpart of that
-   grid, a faint nm grid or scale bar, has not been tested.
+1. Images are the observation. All labels and numbers travel in adjacent text blocks; the
+   only thing drawn on a scan image is graph paper. VISTA's ARC renderer darkens every cell
+   boundary to 3/4; this port draws a faint metric grid (§5.2) on every image arm since
+   2026-10-12, taking VISTA's whole tool set as given without a separate ablation.
 2. Lossless memory: every frame, channel, direction and partial snapshot is archived and
    addressable forever; only the current observation is pushed into context automatically.
 3. One action, one observation: an `act` executes only after the previous `act`'s result
@@ -124,8 +124,23 @@ Hz → `_hz`, N → `_pn`; lengths `_nm`, angles `_deg`, pixels `_px`, time `_s`
 1/100 of the channel's value range (1..6 decimals, at least 0.1 of the unit); the V-text grid
 gives Z as integer pm.
 
+Graph paper (`frames.view_grid`, `draw_grid`; `Archive(grid=True)`, on for every image arm):
+square cells of 1, 2 or 5 x 10^n nm, the smallest such spacing with at most 16 cells across
+the view's longer side and at least 2 scan pixels per cell, so a zoomed view gets a finer
+grid. Lines are counted from the top-left corner of the frame's full image along its own x
+and y; line k lies at scan-pixel coordinate `k * spacing / nm_per_px` and is drawn one image
+pixel wide on pixel `floor((k * spacing / nm_per_px - i0) * up / down + 1e-9)`, so lines are
+evenly spaced to a pixel at any magnification. A line pixel becomes `(3 * pixel + (255, 176,
+0)) // 4` per channel: a quarter of the way toward amber, a hue no grey level has (VISTA
+darkens to 3/4, which vanishes on black and could pass for a trench on an STM image). The
+colour limits come from the data, never from the grid. The spacing is in the label
+(`grid_nm`) and in each `inspect` view (`grid_nm`); `act` and `inspect` describe the grid
+when it is drawn. Spectra, plots and derived images carry no grid. `--grid off` renders
+as before (the first matrix, m1, and the static-benchmark runs of 2026-10-09/10 had no grid)
+and files the runs under `<arm>-nogrid`.
+
 Every image carries a label text block before it, e.g.
-`<visual kind="current" frame="t0007.s0" channel="Z" direction="forward" flatten="plane" scale="2" size="768x768" region="0,0,768,768" z_range_pm="-23.1..41.7"/>`.
+`<visual kind="current" frame="t0007.s0" channel="Z" direction="forward" flatten="plane" scale="2" size="768x768" region="0,0,768,768" field_nm="50x50" grid_nm="5" z_range_pm="-23.1..41.7"/>`.
 
 ### 5.3 `Archive` (archive.py)
 
@@ -329,12 +344,16 @@ implements `protocol.RunnerHost` without `act`, and a report table.
 | arm | observation | notes | inspect | read_values + measure | advisor |
 |---|---|---|---|---|---|
 | `full` | image | yes | yes | yes | no |
+| `read` | image | yes | yes | read_values only (VISTA's tool set) | no |
 | `mem` | image | yes | yes | no | no |
 | `notes` | image | yes | no | no | no |
 | `img` | image | no | no | no | no |
 | `text` | 64×64 numeric grid | yes | no | read_values only | no |
 | `vigil-text` | MAST vision summaries as text, no image | yes | no | no | MAST text only |
 | `advisor` | image | yes | yes | yes | MAST detectors on request |
+
+Every image arm draws the graph paper (§5.2); `with_options(arm, grid=False)` (CLI `--grid off`)
+renders without it under the name `<arm>-nogrid`, which reproduces the tool surface of m1 byte for byte.
 
 ## 11. Definition of done for each work package
 

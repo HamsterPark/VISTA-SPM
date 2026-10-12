@@ -229,6 +229,70 @@ def test_render_block_mean_for_large_frames():
     assert img[0, 0, 0] == 0 and img[0, 511, 0] == 255
 
 
+# ── grid (graph paper) ──────────────────────────────────────────────────────
+@pytest.mark.parametrize("x, step", [(0.3, 0.5), (0.5, 0.5), (0.51, 1.0), (1.0, 1.0), (1.2, 2.0), (2.0, 2.0),
+                                     (2.01, 5.0), (4.375, 5.0), (7.0, 10.0), (0.0137, 0.02), (1e-3, 1e-3),
+                                     (1000.0, 1000.0)])
+def test_nice_step(x, step):
+    assert F.nice_step(x) == step
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf")])
+def test_nice_step_rejects_non_positive(bad):
+    with pytest.raises(ValueError):
+        F.nice_step(bad)
+
+
+def test_view_grid_spacing_follows_the_view():
+    px = 70 / 256
+    full = F.plan_view(256, 256, 3, 1, None, 768)
+    assert F.view_grid(full, px, px).spacing_nm == 5.0             # 70 nm / 16 = 4.4 -> 5 nm, 14 cells
+    zoom = F.plan_view(256, 256, 3, 1, (300, 300, 96, 96), 768)
+    assert F.view_grid(zoom, px, px).spacing_nm == 1.0             # 8.75 nm / 16 = 0.55 -> 1 nm
+    tiny = F.plan_view(256, 256, 3, 1, (300, 300, 9, 9), 768)      # 3 scan px: cells of >= 2 px (0.55 nm)
+    assert F.view_grid(tiny, px, px).spacing_nm == 1.0
+    tall = F.plan_view(64, 512, 1, 1, None, 768)                   # the longer side sets the spacing
+    assert F.view_grid(tall, 0.1, 0.1).spacing_nm == 5.0           # 51.2 nm / 16 = 3.2 -> 5 nm
+
+
+def test_grid_lines_are_even_and_counted_from_the_frame_corner():
+    px = 70 / 256
+    full = F.plan_view(256, 256, 3, 1, None, 768)
+    xs = F.grid_lines(0, 256, 5.0 / px, full.up, full.down, 768)
+    assert xs[:3] == [0, 54, 109] and len(xs) == 14 and set(np.diff(xs)) <= {54, 55}
+    # a zoomed view continues the frame's grid: the region starts at scan px 100 = 27.34 nm, so the
+    # first line is 28 nm = scan px 102.4 = image px (102.4 - 100) * 24 = 57.6 -> 57
+    zoom = F.plan_view(256, 256, 3, 1, (300, 300, 96, 96), 768)
+    i0, _, i1, _ = zoom.native
+    xs = F.grid_lines(i0, i1, 1.0 / px, zoom.up, zoom.down, 768)
+    assert xs[0] == 57 and set(np.diff(xs)) <= {87, 88}
+    # downsampled: a 1024 px, 100 nm frame at half size has 10 nm lines every 51.2 image px
+    big = F.plan_view(1024, 1024, 1, 2, None, 768)
+    xs = F.grid_lines(0, 1024, 10.0 / (100 / 1024), big.up, big.down, 512)
+    assert xs[:3] == [0, 51, 102] and len(xs) == 10 and set(np.diff(xs)) <= {51, 52}
+
+
+def test_draw_grid_blends_line_pixels_a_quarter_toward_amber_and_nothing_else():
+    z = np.ones((32, 32))
+    z[:, 16:] = 0.0
+    z[30:] = np.nan
+    view = F.plan_view(32, 32, 24, 1, None, 768)                   # 24 image px per scan px
+    grid = F.Grid(1.0, 0.5, 0.5)                                   # every 2 scan px = 48 image px
+    plain = _decode(F.render_values(z, view, clip_pct=0.0)[0]).astype(int)
+    lined = _decode(F.render_values(z, view, clip_pct=0.0, grid=grid)[0]).astype(int)
+    lines = list(range(0, 768, 48))
+    assert F.grid_lines(0, 32, 2.0, 24, 1, 768) == lines
+    on = np.zeros((768, 768), dtype=bool)
+    on[:, lines] = True
+    on[lines, :] = True
+    assert (lined[~on] == plain[~on]).all()
+    assert (lined[on] == (3 * plain[on] + np.asarray(F.GRID_RGB)) // 4).all()
+    assert tuple(lined[0, 0]) == ((3 * 255 + 255) // 4, (3 * 255 + 176) // 4, (3 * 255) // 4)
+    assert tuple(lined[48, 400]) == (255 // 4, 176 // 4, 0)                    # on black
+    assert tuple(lined[48 * 15, 5]) == tuple((3 * np.asarray(F.NAN_RGB) + np.asarray(F.GRID_RGB)) // 4)
+    assert F.render_values(z, view)[0] == F.render_values(z, view, grid=None)[0]
+
+
 def test_plan_view_region_snapping_and_magnification():
     # 384 px frame at k=2: an odd display region widens to whole scan pixels
     v = F.plan_view(384, 384, 2, 1, (101, 51, 63, 31), 768)
