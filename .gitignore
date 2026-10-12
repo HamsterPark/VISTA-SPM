@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv*/
+
+# Episode ledgers, transcripts, frames and generated benchmark data stay outside the
+# repository (STM_BENCH_DATA, or tmp/ for scratch); results/ holds aggregates only.
+/tmp/
+/runs/
+*.sxm
+*.dat
+*.npy
+*.h5
+*.parquet
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# MAST writes here when MAST2_PROJECT_ROOT is unset (tests); never commit
+/experiments/
+/config/
+/artifacts/

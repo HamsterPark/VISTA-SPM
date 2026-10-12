@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vista-spm"
+version = "0.1.0.dev0"
+description = "VISTA-SPM: an image-first visual harness for multimodal models operating a scanning probe microscope, evaluated on the STM-Bench simulator through MAST"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [{ name = "HamsterPark" }]
+keywords = ["STM", "scanning probe microscopy", "visual harness", "multimodal agents", "LLM benchmark"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+# STM-Bench (distribution "stm-bench": packages stmbench + stmsim) is not on PyPI: install it
+# editable from its checkout first. MAST is not a distribution; see README "Setup".
+dependencies = [
+    "stm-bench",
+    "numpy>=2.0",
+    "scipy>=1.14",
+    "pillow>=10",
+    "matplotlib>=3.8",
+    "pyyaml>=6",
+    "scikit-image>=0.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+vista-spm = "vista_spm.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["vista_spm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "requires_mast: needs MAST v2 (MASTv2 on PYTHONPATH / MAST_ROOT) and its patched controller client; skipped when absent",
+    "isolated: must be the only RuntimeHost in its process (MAST process-level singletons); run separately with -m isolated",
+]
