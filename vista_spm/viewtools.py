@@ -436,7 +436,8 @@ def _view_summary(i: int, label: str, e: FrameEntry, meta: dict) -> dict:
             out["rows_acquired"] = int(e.acquired_rows)
             out["rows_total"] = int(e.ny)
     elif e.kind == "d":
-        out.update({"x_col": meta["x_col"], "x_unit": meta["x_unit"], "y": meta["y"],
+        out.update({"x_col": meta["x_col"], "x_unit": meta["x_unit"],
+                    "y_cols": [d["column"] for d in meta["y"]], "y_units": [d["unit"] for d in meta["y"]],
                     "n_points": meta["n_points"],
                     F.unit_key("x_shown", meta["x_unit"]): [float(f"{v:.6g}") for v in meta["x_shown"]],
                     "image_size_px": meta["image_size_px"]})

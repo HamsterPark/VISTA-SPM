@@ -318,5 +318,8 @@ def test_read_values_spectrum(tmp_path):
                                                   "x_range": [-0.2, 0.2]}]})
     body = _ok(r)
     assert body["views"][0]["n_points"] == 9 and body["views"][0]["x_unit"] == "V"
+    assert body["views"][0]["y_cols"] == ["Current (A)"] and body["views"][0]["y_units"] == ["pA"]
+    from tests.test_measure import _vocabulary_violations       # m1 replied y: [{column, unit}]
+    assert _vocabulary_violations(body) == []
     assert body["views"][0]["x_shown_v"] == [-0.2, 0.2] and body["views"][0]["kind"] == "spectrum"
     assert _size(r.images[0].png)[0] >= 600
