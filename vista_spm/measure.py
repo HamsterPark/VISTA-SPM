@@ -47,6 +47,7 @@ FWHM_PER_SIGMA = 2.0 * math.sqrt(2.0 * math.log(2.0))
 MARK_RGB = (255, 214, 0)
 MAX_PROFILE_SAMPLES = 400
 REFINE_PX = 256          # side of the central window the sub-pixel registration is refined on
+REFINE_STEP_PX = 1       # the refinement may move the shift at most this far from the parabolic start
 MAX_BLOBS = 200
 MAX_REGIONS = 30
 
@@ -988,37 +989,45 @@ def register(a: np.ndarray, b: np.ndarray, *, max_shift_frac: float = 0.4) -> di
     others = ncc[far & (ncc > -1.0)]
     second = float(others.max()) if others.size else float("nan")
 
-    from scipy.ndimage import shift as nd_shift, spline_filter
+    from scipy.ndimage import binary_erosion, shift as nd_shift, spline_filter
 
     # refine on a central window of at most REFINE_PX^2 (the shift is global; cost stays bounded)
     wy, wx = min(ny, REFINE_PX), min(nx, REFINE_PX)
     y0w, x0w = (ny - wy) // 2, (nx - wx) // 2
     win = (slice(y0w, y0w + wy), slice(x0w, x0w + wx))
     coeffs = spline_filter(a0[win], order=3)
-    ma_w, mb_w, b0_w = ma[win], mb[win], b0[win]
+    # One overlap for the whole refinement: the pixels of b where the shifted a is valid for every shift
+    # within REFINE_STEP_PX of the start (the farthest the refinement may move), i.e. the start's
+    # overlap eroded by that many pixels. An overlap recomputed for each shift gains or loses a whole
+    # row or column whenever a shift component crosses an integer; the objective then jumps there
+    # and Nelder-Mead, with weak correlation, stops on the jump (the shift snapped to an integer).
+    valid0 = nd_shift(ma[win], (dy0, dx0), order=1, mode="constant", cval=0.0) > 0.999
+    side = 2 * REFINE_STEP_PX + 1
+    ok = binary_erosion(valid0, structure=np.ones((side, side), dtype=bool), border_value=0) & (mb[win] > 0)
+    v = b0[win][ok]
+    v = v - v.mean() if v.size else v
+    vv = float((v * v).sum())
 
     def neg_ncc(d):
-        sa = nd_shift(coeffs, (d[0], d[1]), order=3, mode="constant", cval=0.0, prefilter=False)
-        valid = nd_shift(ma_w, (d[0], d[1]), order=1, mode="constant", cval=0.0) > 0.999
-        ok = valid & (mb_w > 0)
-        if ok.sum() < 16:
-            return 1.0
-        u, v = sa[ok] - sa[ok].mean(), b0_w[ok] - b0_w[ok].mean()
-        den = math.sqrt(float((u * u).sum() * (v * v).sum()))
+        sa = nd_shift(coeffs, (d[0], d[1]), order=3, mode="constant", cval=0.0, prefilter=False)[ok]
+        u = sa - sa.mean()
+        den = math.sqrt(float((u * u).sum()) * vv)
         return -float((u * v).sum() / den) if den > 0 else 1.0
 
     dy, dx = dy0, dx0
     refined = False
-    try:
-        f0 = neg_ncc(np.array([dy0, dx0]))
-        sol = minimize(neg_ncc, np.array([dy0, dx0]), method="Nelder-Mead",
-                       options={"xatol": 2e-3, "fatol": 1e-9, "maxiter": 120,
-                                "initial_simplex": np.array([[dy0, dx0], [dy0 + 0.3, dx0], [dy0, dx0 + 0.3]])})
-        ry, rx = float(sol.x[0]), float(sol.x[1])
-        if float(sol.fun) <= f0 and abs(ry - dy0) <= 1.0 and abs(rx - dx0) <= 1.0:
-            dy, dx, refined = ry, rx, True
-    except Exception:  # noqa: BLE001 — keep the parabolic estimate
-        pass
+    if int(ok.sum()) >= 16:
+        try:
+            f0 = neg_ncc(np.array([dy0, dx0]))
+            sol = minimize(neg_ncc, np.array([dy0, dx0]), method="Nelder-Mead",
+                           options={"xatol": 2e-3, "fatol": 1e-9, "maxiter": 120,
+                                    "initial_simplex": np.array([[dy0, dx0], [dy0 + 0.3, dx0], [dy0, dx0 + 0.3]])})
+            ry, rx = float(sol.x[0]), float(sol.x[1])
+            if (float(sol.fun) <= f0 and abs(ry - dy0) <= REFINE_STEP_PX
+                    and abs(rx - dx0) <= REFINE_STEP_PX):
+                dy, dx, refined = ry, rx, True
+        except Exception:  # noqa: BLE001 — keep the parabolic estimate
+            pass
     conf = peak / second if second and second > 0 else float("inf")
     at_edge = abs(k[0] - lim) >= lim or abs(k[1] - lim) >= lim
     return {"dx": float(dx), "dy": float(dy), "ncc_peak": peak, "second_peak": second,

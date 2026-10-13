@@ -296,6 +296,71 @@ def test_register_pure_function():
     assert (r["dx"], r["dy"]) == pytest.approx((3.7, -2.4), abs=0.03)
 
 
+def _steps_and_adatoms(seed: int, shift_nm: tuple[float, float]) -> tuple[np.ndarray, np.ndarray, dict]:
+    """96 x 96 frames of 0.1 nm pixels: a tip-broadened step and adatoms, a creep bow that changes
+    between the frames, and noise. Frame b shows frame a's surface moved by ``shift_nm`` (scan frame)."""
+    rng = np.random.default_rng(seed)
+    g = _geom(nx=96, ny=96, w=9.6, h=9.6)
+    X, Y = _scan_xy(g)
+    atoms = rng.uniform(-8.0, 8.0, (18, 2))
+
+    def surface(Xs, Ys):
+        z = 60e-12 * (0.5 + 0.5 * np.tanh((Xs + 0.3 * Ys - 1.5) / 0.3))
+        for ax, ay in atoms:
+            z = z + 60e-12 * np.exp(-((Xs - ax) ** 2 + (Ys - ay) ** 2) / (2 * 0.3 ** 2))
+        return z
+
+    u = (np.arange(96) + 0.5) / 96 - 0.5
+    bow_a = 400e-12 * np.add.outer(u ** 2, 0.5 * u ** 2)
+    bow_b = 250e-12 * np.add.outer(0.3 * u ** 2, u ** 2) + 40e-12 * np.add.outer(u, u)
+    za = surface(X, Y) + bow_a + rng.normal(0, 2e-12, X.shape)
+    zb = surface(X - shift_nm[0], Y - shift_nm[1]) + bow_b + rng.normal(0, 2e-12, X.shape)
+    return za, zb, g
+
+
+def test_diff_refinement_objective_has_no_jumps_at_integer_shifts(tmp_path, monkeypatch):
+    """The sub-pixel refinement keeps one overlap for every shift it tries. m1 recomputed the overlap
+    per shift, so a row or column left it whenever a shift component moved off an integer: the
+    objective jumped there, and with weak correlation Nelder-Mead stopped on the jump."""
+    import scipy.optimize
+
+    seen: dict = {}
+    real = scipy.optimize.minimize
+
+    def spy(fun, x0, *args, **kw):
+        seen["fun"], seen["x0"] = fun, np.array(x0, dtype=float)
+        return real(fun, x0, *args, **kw)
+
+    monkeypatch.setattr(scipy.optimize, "minimize", spy)
+    za, zb, g = _steps_and_adatoms(1, (2.937, -0.334))
+    arch = Archive(tmp_path)
+    _ok(M.diff(arch, {"frame_a": _add(arch, 0, za, g), "frame_b": _add(arch, 1, zb, g)}))
+    f, start = seen["fun"], seen["x0"]
+    d = 0.01
+    for axis in (0, 1):
+        for k in (math.floor(start[axis]), math.ceil(start[axis])):
+            def at(t, axis=axis):
+                p = start.copy()
+                p[axis] = t
+                return f(p)
+            across = abs(at(k + d) - at(k - d))
+            beside = max(abs(at(k + 3 * d) - at(k + d)), abs(at(k - d) - at(k - 3 * d)))
+            assert across <= 2.0 * beside + 1e-9, (axis, k, across, beside)
+
+
+def test_diff_shift_does_not_snap_to_whole_pixels(tmp_path):
+    """Content moved by (29.37, 3.34) px between weakly correlated frames: m1 returned whole-pixel
+    components for most seeds (the refinement stopped on the jumps of its objective)."""
+    arch = Archive(tmp_path)
+    for seed in range(8):
+        za, zb, g = _steps_and_adatoms(seed, (2.937, -0.334))
+        body = _ok(M.diff(arch, {"frame_a": _add(arch, 2 * seed, za, g), "frame_b": _add(arch, 2 * seed + 1, zb, g)}))
+        reg = body["registration"]
+        assert reg["peak_at_search_limit"] is False
+        for v in reg["shift_px"]:
+            assert abs(v - round(v)) > 1e-3, (seed, reg["shift_px"])
+
+
 # ── line_profile ────────────────────────────────────────────────────────────
 def test_line_profile_finds_a_step(tmp_path):
     g = _geom(nx=200, ny=100, w=20.0, h=10.0)
