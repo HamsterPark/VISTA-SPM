@@ -15,7 +15,7 @@ VISTA-SPM 是一个以图像为主的视觉 harness，供前沿多模态大模�
 - [dsh-spm](https://github.com/HamsterPark/dsh-spm) 把 harness 移植成了 TypeScript。
 - 本仓库保留一份能独立运行的快照：harness、282 项测试、静态感知基准和第一版消融结果。
 - 所有结果都来自模拟器，没有在真实仪器上跑过。
-- 视觉记忆、测量工具和静态基准只用公开组件就能运行；闭环回合需要 MAST（[详见下文](#不装-mast-能跑什么)）。
+- 视觉记忆、测量工具和静态基准只需要 STM-Bench；闭环回合还需要 MAST，它的公开版 MAST-public 可以替代（[详见下文](#不装-mast-能跑什么)）。
 
 ## 为什么要给显微镜套一个 ARC-AGI-3 的 harness
 
@@ -172,13 +172,21 @@ python -m vista_spm run
 
 ## 不装 MAST 能跑什么
 
-| 只用公开组件就能跑（Python 3.13、STM-Bench 84fb385 或更新、PyPI 上的包） | 需要 MAST |
+| 只需 STM-Bench（Python 3.13、STM-Bench 84fb385 或更新、PyPI 上的包） | 需要 MAST 或 MAST-public |
 |---|---|
 | 测试：282 项通过，隔离的端到端回合测试跳过 | 闭环回合（`run`）：`act` 要靠 MAST 的运行时和技能在模拟器上执行 |
 | `tools`：每个臂的系统提示和工具 schema | `advisor` 和 `vigil-text` 两个臂：要用 MAST 的检测器和 VIGIL 视觉模型 |
 | 视觉记忆和测量工具，作用于 `.sxm` / `.dat` 文件 | 静态基准里的原子分辨题，它们的真值来自 MAST 的判定 |
 | 静态基准：`generate`、经典基线（`answer`）、`score`、`report`，以及用 Claude Code 的 `qa` | |
 | 为已记录的回合生成 `replay` 回放页面 | |
+
+**用 MAST-public 代替 MAST。** 2026-10-13 在装好 `MASTv2/requirements-v2.txt` 的环境里，用 MAST-public 9552b27 核对过：
+
+- 隔离的端到端回合测试通过；
+- `act` 背后的 22 个技能全部注册（MAST-public 共注册 481 个技能）；
+- 静态基准的原子分辨题可以生成。
+
+MAST-public 不含 VIGIL 的权重，所以 `vigil-text` 臂和 `advisor` 臂里的 VIGIL 读数用不了；advisor 的经典检测器都在。还没有在 MAST-public 上跑过由模型驱动的回合。
 
 ## 环境
 
@@ -191,7 +199,7 @@ python -m vista_spm run
 
    开发时改为安装本地目录：`pip install -e <STM-Bench 目录>`。
 3. **本仓库：** `pip install -e ".[dev]"`，或直接在仓库根目录运行。
-4. **MAST**，只有闭环回合需要。把它的 `MASTv2` 目录加到 `PYTHONPATH`，并把 `MAST_ROOT` 设为 MAST 仓库目录。
+4. **MAST 或 [MAST-public](https://github.com/HamsterPark/MAST-public)**，只有闭环回合需要。安装它的 `MASTv2/requirements-v2.txt`，把 `MASTv2` 目录加到 `PYTHONPATH`，并把 `MAST_ROOT` 设为仓库目录。
 5. **Claude Code** 命令行，用 Claude 订阅登录；回合和静态基准的 Claude 运行需要它。
 
 Windows 上还要设置 `PYTHONUTF8=1`。
@@ -237,7 +245,7 @@ python -m pytest -q -m "not isolated"     # 单元与集成测试，不需要 MA
 python -m pytest -q -m isolated           # 端到端脚本化回合（需要 MAST；每个进程只能有一个 RuntimeHost）
 ```
 
-在 STM-Bench 84fb385 上不装 MAST：282 项通过、4 项跳过、1 项未选中。装上 MAST，隔离的端到端回合也能通过。
+在 STM-Bench 84fb385 上不装 MAST：282 项通过、4 项跳过、1 项未选中。装上 MAST 或 MAST-public 9552b27，隔离的端到端回合也能通过。
 - **跳过的：** `tests/test_runner.py` 里调用真实 Claude Code 的测试，只有设置 `VISTA_LIVE_CLAUDE=1` 时才运行。
 - **未选中的：** 隔离的端到端回合。
 
@@ -265,7 +273,7 @@ python -m pytest -q -m isolated           # 端到端脚本化回合（需要 MA
 |---|---|---|
 | [STM-Bench](https://github.com/HamsterPark/STM-Bench) | 公开 | 模拟器（`stmsim`）、`.sxm`/`.dat` 读取器、场景与判分（`stmbench`） |
 | MAST | 私有 | `act` 背后的仪器运行时与技能、检测器和 VIGIL；本 harness 的维护版本所在 |
-| [MAST-public](https://github.com/HamsterPark/MAST-public) | 公开 | MAST 6.5.0 的有限公开源码版 |
+| [MAST-public](https://github.com/HamsterPark/MAST-public) | 公开 | MAST 6.5.0 的有限公开源码版；在这里可以替代 MAST，但没有 VIGIL（[详见上文](#不装-mast-能跑什么)） |
 | [dsh-spm](https://github.com/HamsterPark/dsh-spm) | 公开 | 视觉记忆与测量工具的 TypeScript 移植 |
 
 dsh-spm 的一致性金样由 `vista_spm/frames.py`、`archive.py`、`viewtools.py` 和 `measure.py` 生成。

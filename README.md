@@ -15,7 +15,7 @@ Its question: should the model look at the pixels itself, with a lossless memory
 - [dsh-spm](https://github.com/HamsterPark/dsh-spm) ports the harness to TypeScript.
 - This repository keeps a self-contained snapshot: the harness, its 282 tests, the static perception benchmark and the first ablation results.
 - All results come from the simulator. Nothing here has run on a real instrument.
-- The visual memory, the measurement tools and the static benchmark run with public components only. Closed-loop episodes need MAST ([details](#what-runs-without-mast)).
+- The visual memory, the measurement tools and the static benchmark need only STM-Bench. Closed-loop episodes also need MAST, and its public edition MAST-public can stand in for it ([details](#what-runs-without-mast)).
 
 ## Why an ARC-AGI-3 harness for a microscope
 
@@ -172,13 +172,21 @@ Each arm has these tools:
 
 ## What runs without MAST
 
-| Runs with public components (Python 3.13, STM-Bench 84fb385 or later, packages from PyPI) | Needs MAST |
+| Runs with STM-Bench only (Python 3.13, STM-Bench 84fb385 or later, packages from PyPI) | Needs MAST or MAST-public |
 |---|---|
 | the test suite: 282 tests pass; the isolated end-to-end episode is skipped | closed-loop episodes (`run`): MAST's runtime and skills execute `act` on the simulator |
 | `tools`: every arm's system prompt and tool schemas | the `advisor` and `vigil-text` arms: MAST's detectors and the VIGIL vision model |
 | the visual memory and the measurement tools on `.sxm` / `.dat` files | the static benchmark's atomic-resolution items, whose truth is MAST's judge |
 | the static benchmark: `generate`, the classical baseline (`answer`), `score`, `report`, and `qa` with Claude Code | |
 | `replay` pages for recorded episodes | |
+
+**MAST-public instead of MAST.** This was checked on 2026-10-13 with MAST-public 9552b27, in an environment with its `MASTv2/requirements-v2.txt` installed:
+
+- the isolated end-to-end episode passes;
+- every one of the 22 skills behind `act` is registered (MAST-public registers 481 skills);
+- the static benchmark's atomic-resolution items are generated.
+
+MAST-public leaves out VIGIL's weights, so the `vigil-text` arm and the VIGIL readings of the `advisor` arm do not work with it. The advisor's classical detectors are included. No model-driven episode has been run on MAST-public yet.
 
 ## Setup
 
@@ -191,7 +199,7 @@ Each arm has these tools:
 
    For development, install a checkout instead: `pip install -e <STM-Bench checkout>`.
 3. **This repository:** `pip install -e ".[dev]"`, or run from its root.
-4. **MAST**, for closed-loop episodes only. Put its `MASTv2` directory on `PYTHONPATH` and set `MAST_ROOT` to the checkout.
+4. **MAST or [MAST-public](https://github.com/HamsterPark/MAST-public)**, for closed-loop episodes only. Install its `MASTv2/requirements-v2.txt`, put its `MASTv2` directory on `PYTHONPATH` and set `MAST_ROOT` to the checkout.
 5. **Claude Code** CLI, logged in with a Claude subscription, for episodes and the static benchmark's Claude runs.
 
 On Windows also set `PYTHONUTF8=1`.
@@ -237,7 +245,7 @@ python -m pytest -q -m "not isolated"     # unit and integration; needs no MAST
 python -m pytest -q -m isolated           # end-to-end scripted episode (needs MAST; one RuntimeHost per process)
 ```
 
-On STM-Bench 84fb385 without MAST: 282 passed, 4 skipped, 1 deselected. With MAST the isolated episode passes as well.
+On STM-Bench 84fb385 without MAST: 282 passed, 4 skipped, 1 deselected. With MAST, or with MAST-public 9552b27, the isolated episode passes as well.
 - **Skipped:** the live Claude Code tests in `tests/test_runner.py`, which run only with `VISTA_LIVE_CLAUDE=1`.
 - **Deselected:** the isolated end-to-end episode.
 
@@ -265,7 +273,7 @@ On STM-Bench 84fb385 without MAST: 282 passed, 4 skipped, 1 deselected. With MAS
 |---|---|---|
 | [STM-Bench](https://github.com/HamsterPark/STM-Bench) | public | the simulator (`stmsim`), the `.sxm`/`.dat` reader, the scenarios and the judge (`stmbench`) |
 | MAST | private | the instrument runtime and skills behind `act`, the detectors and VIGIL; the maintained home of this harness |
-| [MAST-public](https://github.com/HamsterPark/MAST-public) | public | MAST 6.5.0's limited public source edition |
+| [MAST-public](https://github.com/HamsterPark/MAST-public) | public | MAST 6.5.0's limited public source edition; it can stand in for MAST here, without VIGIL ([details](#what-runs-without-mast)) |
 | [dsh-spm](https://github.com/HamsterPark/dsh-spm) | public | a TypeScript port of the visual memory and the measurement tools |
 
 dsh-spm's parity goldens are generated from `vista_spm/frames.py`, `archive.py`, `viewtools.py` and `measure.py`.
