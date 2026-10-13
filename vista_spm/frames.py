@@ -971,8 +971,9 @@ def render_spectrum(columns: dict[str, np.ndarray], units: dict[str, str], *, x_
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=100)
     png = buf.getvalue()
+    shown = xs[sel][np.isfinite(xs[sel])]          # an x column without a finite value shows nothing
     meta = {"x_col": x_col, "x_unit": ux, "y": meta_cols, "n_points": int(sel.sum()),
-            "x_shown": [float(np.nanmin(xs[sel])), float(np.nanmax(xs[sel]))]}
+            "x_shown": [float(shown.min()), float(shown.max())] if shown.size else [math.nan, math.nan]}
     return png, meta
 
 

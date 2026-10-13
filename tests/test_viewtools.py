@@ -10,7 +10,7 @@ import pytest
 from vista_spm import frames as F
 from vista_spm import viewtools as V
 from vista_spm.archive import Archive
-from vista_spm.protocol import MAX_INSPECT_VIEWS, MAX_READ_SAMPLES, MAX_READ_VIEWS, ToolReply
+from vista_spm.protocol import MAX_INSPECT_VIEWS, MAX_READ_SAMPLES, MAX_READ_VIEWS, ToolReply, compact_json
 
 GEOM = {"cx_nm": 0.0, "cy_nm": 0.0, "w_nm": 38.4, "h_nm": 38.4, "angle_deg": 0.0}
 
@@ -247,6 +247,34 @@ def test_read_values_caps(arch):
         {"label": "a", "frame": "t0002.m0", "rows": 1, "columns": 1}]}))
     _ok(V.read_values(arch, {"question": "q", "views": [
         {"label": "a", "frame": "t0000.p0", "rows": 64, "columns": 64}]}))
+
+
+def _strict_json(text: str):
+    """Parse as standard JSON: NaN / Infinity are refused (``json.loads`` accepts them by default)."""
+    def refuse(constant):
+        raise ValueError(f"not JSON: {constant}")
+    return json.loads(text, parse_constant=refuse)
+
+
+def test_compact_json_writes_null_for_non_finite_numbers():
+    """NaN and +-Infinity are not JSON; m1 wrote them as NaN / Infinity, so such a reply did not parse."""
+    s = compact_json({"a": float("nan"), "b": [float("inf"), 1.5], "c": np.float32("nan"),
+                      "d": np.array([1.0, np.nan, -np.inf]), "e": np.float32(0.25)})
+    assert s == '{"a":null,"b":[null,1.5],"c":null,"d":[1.0,null,null],"e":0.25}'
+    _strict_json(s)
+
+
+def test_inspect_spectrum_without_a_finite_x_value_replies_in_json(tmp_path):
+    pytest.importorskip("mast.io.nanonis_files")
+    rows = ["Experiment\tbias spectroscopy\t", "X (m)\t1.250000E-09\t", "Y (m)\t-2.000000E-09\t", "",
+            "[DATA]", "Bias calc (V)\tCurrent (A)"] + [f"NaN\t{1e-11 * i:.6E}" for i in range(5)]
+    dat = tmp_path / "nan.dat"
+    dat.write_text("\n".join(rows) + "\n", encoding="ascii")
+    a = Archive(tmp_path / "s")
+    d = a.add_spectrum(0, dat)
+    r = V.inspect(a, {"question": "q", "views": [{"label": "plot", "frame": d.fid}]})
+    assert not r.is_error, r.text
+    assert _strict_json(r.text)["views"][0]["x_shown_v"] == [None, None]
 
 
 def test_read_values_spectrum(tmp_path):

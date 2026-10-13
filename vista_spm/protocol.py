@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -86,8 +87,25 @@ def parse_frame_id(fid: str) -> tuple[int, str, int]:
 
 
 def compact_json(obj: Any) -> str:
-    """The text block of a tool reply: compact, UTF-8, numbers as numbers."""
-    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), default=_json_default)
+    """The text block of a tool reply: compact, UTF-8, numbers as numbers. NaN and +-Infinity are
+    not JSON, so they are written as ``null`` (a reply carrying them would not parse)."""
+    return json.dumps(_finite(obj), ensure_ascii=False, separators=(",", ":"), allow_nan=False,
+                      default=_json_default)
+
+
+def _finite(o: Any) -> Any:
+    """``o`` with every non-finite float replaced by ``None``. numpy scalars and arrays become the
+    Python values :func:`_json_default` would give them, so finite values serialize as before."""
+    if isinstance(o, float):
+        return o if math.isfinite(o) else None
+    if isinstance(o, dict):
+        return {k: _finite(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_finite(v) for v in o]
+    if isinstance(o, (str, int, bool)) or o is None:
+        return o
+    converted = _json_default(o)                 # str(o) stays a string; numpy values are checked
+    return converted if isinstance(converted, str) else _finite(converted)
 
 
 def _json_default(o: Any) -> Any:
