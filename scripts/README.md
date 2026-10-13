@@ -1,6 +1,6 @@
 # Matrix tooling
 
-These scripts ran the first ablation matrix (`m1`, 2026-10-09/10). Run them with the environment described in the [README](../README.md#setup).
+These scripts ran the first ablation matrix (`m1`, 2026-10-09/10). Run them with the environment described in the [README](../README.md#setup); they run closed-loop episodes, so they need MAST.
 
 | Script | Purpose |
 |---|---|

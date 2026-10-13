@@ -2,23 +2,64 @@
 
 [English](README.md) · 中文
 
-VISTA-SPM 是一个以图像为主的视觉 harness，让多模态大模型操作扫描探针显微镜。
+**让多模态大模型看见、记住、回看并测量扫描隧道显微镜给它的每一幅图。**
 
-它把何恺明组的 VISTA（Han, Hu, Qiu, Wu, He, "VISTA: A Visual Harness for Reasoning in an Interactive World", arXiv 2610.02200）从 ARC-AGI-3 游戏移植到 [STM-Bench](https://github.com/HamsterPark/STM-Bench) 的论文复现场景。在一个回合里，模型可以：
+VISTA-SPM 是一个以图像为主的视觉 harness，供前沿多模态大模型操作扫描隧道显微镜（STM）。它把何恺明组的 VISTA（Han, Hu, Qiu, Wu, He，*VISTA: A Visual Harness for Reasoning in an Interactive World*，[arXiv 2610.02200](https://arxiv.org/abs/2610.02200)）从 ARC-AGI-3 游戏移植到 [STM-Bench](https://github.com/HamsterPark/STM-Bench) 的论文复现场景。STM-Bench 是一台模拟的 STM，配有按证据判分的裁判。
 
-- 以图像形式看到仪器产生的帧；
-- 无损保存所有帧，随时回看任意一帧并做测量；
-- 写自己的笔记。
+它要回答的问题是：应该让模型自己看像素，并给它每一帧的无损记忆、一把放大镜和精确读数；还是先用视觉模型把每幅图转成文字？
 
-模型通过一个 MCP 服务器操作仪器，每轮只执行一个仪器动作。
+![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![MIT license](https://img.shields.io/badge/license-MIT-green) ![Snapshot](https://img.shields.io/badge/snapshot-2026--10--13-lightgrey)
 
-**状态：** 研究原型，私有仓库。第一版结果出自 2026-10-10，见下文。仓库里有 harness、消融矩阵工具、静态感知基准和汇总结果；回合账本与对话记录不进仓库。
+**状态：精简的公开演示版。**
+- 维护中的 harness 在 MAST 里。MAST 是实验室的 STM 自动化工具包，本身是私有仓库；[MAST-public](https://github.com/HamsterPark/MAST-public) 是它的有限公开版。
+- [dsh-spm](https://github.com/HamsterPark/dsh-spm) 把 harness 移植成了 TypeScript。
+- 本仓库保留一份能独立运行的快照：harness、282 项测试、静态感知基准和第一版消融结果。
+- 所有结果都来自模拟器，没有在真实仪器上跑过。
+- 视觉记忆、测量工具和静态基准只用公开组件就能运行；闭环回合需要 MAST（[详见下文](#不装-mast-能跑什么)）。
 
-## 为什么做
+## 为什么要给显微镜套一个 ARC-AGI-3 的 harness
 
-MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIGIL 把每幅图转成文字。VISTA 在 ARC-AGI-3 上的消融指向另一条路：把像素直接交给前沿多模态模型，无损保存它看过的每一帧，再给它一把放大镜（`inspect`：取出任意历史帧、裁剪、放大）和一个精确读数工具（`read_pixels`）。VISTA 的消融里，加笔记得 4.2 分，加无损记忆和 `inspect` 得 24.1 分，再加 `read_pixels` 得 4.9 分。
+### STM 简介
 
-本仓库在 STM-Bench 模拟器上检验这条路，并保留 VIGIL 文本作为对照臂。
+扫描隧道显微镜让一根尖锐的金属针尖停在导电表面上方几埃处，一边扫描一边记录隧穿电流，图像能分辨出单个原子。同一根针尖还能测谱，也能把单个原子在表面上拖动。仪器给出的一切都要经过这根针尖，而针尖顶端的原子结构谁也看不见，用着用着还会变。[MAST-public 的 README](https://github.com/HamsterPark/MAST-public/blob/main/README.zh.md) 对 STM、以及它为什么难以自主操作，讲得更详细。
+
+### 同一类问题
+
+ARC-AGI-3 把智能体放进规则和目标都隐藏的游戏里。智能体要自己动手，看画面怎么变，从帧里推出规则；评分看它比人少用多少步。操作 STM 是同一类问题，只是多了物理：
+
+| | ARC-AGI-3 游戏 | STM 实验（STM-Bench 的一个场景） |
+|---|---|---|
+| 智能体看到什么 | 每次动作后一帧 64×64、16 色的画面 | 每次仪器动作后的扫描帧（形貌、电流，正反扫）和谱 |
+| 什么是隐藏的 | 规则与目标 | 针尖状态、漂移、样品，以及按种子抽取的场景数值 |
+| 怎么行动 | 每次一个游戏动作 | 每次一个仪器动作：扫描、设偏压、移针、脉冲、轻戳、测谱、拖原子 |
+| 动作的代价 | 用的动作越少，分越高 | 仪器时间和动作数；一次针尖脉冲、一次拖原子都无法撤回 |
+| 证据在哪里 | 动作前后画面的变化 | 帧与帧的差别：原子动了没有？针尖变了没有？样品漂了没有？ |
+| 怎样算成功 | 通关 | 复现论文的结论，并给出判分要求的测量 |
+
+两者的关键证据往往都来自跨时间的比较：动作前的一帧对比动作后的一帧。VISTA 的帧档案和放大镜给模型的正是这种能力。
+
+在[调研笔记](docs/notes/2026-10-09-research-and-plan.zh-CN.md)梳理的工作中，前沿大模型在真实 STM 上的智能体报告只有 quailbot（[arXiv 2609.27302](https://arxiv.org/abs/2609.27302)）一篇。它的失败案例都是人对比动作前后的帧诊断出来的。
+
+VISTA 没有训练任何视觉模型，增益全部来自 harness。它在 ARC-AGI-3 的 25 个公开游戏上做的消融里：
+- 把官方的文本网格换成图像，RHAE 从 13.33 升到 47.32；
+- 再经过几步，其中笔记 +4.2、无损记忆加 `inspect` +24.1、`read_pixels` +4.9，最后到 99.00。
+
+### 需要改什么
+
+STM 的帧不是 ARC 的帧：
+- 里面是带物理单位的连续高度和电流，有噪声、漂移和针尖造成的模糊；
+- 要紧的特征可能只是 512 像素的帧里几个像素宽的一个原子；
+- 谱是曲线，不是图片。
+
+所以移植保留了 VISTA 的全套工具（图像、笔记、全部帧的档案、放大镜 `inspect`、精确读数和方格纸），改造其中两样，再加上物理学家会伸手去拿的东西：
+
+- 精确读数 `read_values` 给出 pm、pA 或 V 的数值，而不是调色板编号；
+- 方格纸改用纳米单位，格距 1、2 或 5 × 10ⁿ nm，代替 ARC 的单元格线；
+- 五个只测量、不下判断的测量工具：`line_profile`、`fft_peaks`、`detect_blobs`、`diff` 和 `stats`；
+- 谱按需绘制，也可以按数值读取；
+- 仪器时钟只在动作执行时走，模型思考不消耗仪器时间。
+
+MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIGIL 把每幅图转成文字。本仓库在 STM-Bench 模拟器上用 VISTA 的路线与之对照，并保留 VIGIL 文本作为对照臂。
 
 ## 第一版结果（2026-10-10）
 
@@ -28,7 +69,7 @@ MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIG
 - **动作：** V0 原语动作集。
 - **场景：** P1（Au(111) 鱼骨重构）、P4（在 Cu(111) 上搬运一个 Fe 原子）、P5（qPlus 力谱与 Sader–Jarvis 反演）。
 - **种子：** 0–2。
-- **图像：** 当时还没有格线。下面的方格纸是 2026-10-12 加的。复现这些回合要用标签 `m1-surface` 并加 `--grid off`：2026-10-13 修参考实现时改了部分工具（[说明](docs/notes/2026-10-13-reference-fixes.zh-CN.md)）。
+- **图像：** 当时还没有方格纸，它是 2026-10-12 加的。
 - **判分：** STM-Bench 官方判分。
 
 | 臂 | 观测与工具 | 结论通过比例 | 完整复现 |
@@ -71,7 +112,10 @@ MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIG
 
 两个 Claude 臂的差距几乎全部来自鱼骨条纹周期，这类题需要精确测量。
 
-细节、局限和待拍板事项见 [docs/notes/2026-10-10-first-results.zh-CN.md](docs/notes/2026-10-10-first-results.zh-CN.md)；表格在 [results/](results/)。
+**这些数字是什么。** 它们都是存档记录：
+- **来源。** 这些运行用的是 MAST 和 2026-10-09/10 的 STM-Bench，早于它公开的规则 v1 和之后的模拟器改动。冻结代码的文件哈希见 [results/m1/code_manifest.json](results/m1/code_manifest.json)。只用公开组件无法重跑这些回合。
+- **标签能复现什么。** 标签 `m1-surface` 加 `--grid off` 能复现这些回合看到的系统提示、工具界面和工具行为。2026-10-13 修参考实现时又改了部分工具（[说明](docs/notes/2026-10-13-reference-fixes.zh-CN.md)）。
+- **细节在哪里。** 细节与局限见 [docs/notes/2026-10-10-first-results.zh-CN.md](docs/notes/2026-10-10-first-results.zh-CN.md)，表格在 [results/](results/)。
 
 ## 工作方式
 
@@ -85,7 +129,10 @@ python -m vista_spm run
 ```
 
 - **观测：** 原始帧，按整数倍最近邻缩放。标签和数字放在图像旁边的文字里。
-- **方格纸：** 扫描图上唯一画的东西，相当于 VISTA 在 ARC 帧上画的格线。它是一层淡琥珀色的纳米方格，格距取 1、2 或 5 × 10ⁿ nm，从整帧左上角起算；每个视野最多 16 格，所以放大后格子会变细。格距 `grid_nm` 写在每张图的标签里，`--grid off` 可以关掉。
+- **方格纸：** 扫描图上唯一画的东西，相当于 VISTA 在 ARC 帧上画的格线。
+  - 它是一层淡琥珀色的纳米方格，格距取 1、2 或 5 × 10ⁿ nm，从整帧左上角起算。
+  - 每个视野最多 16 格，所以放大后格子会变细。
+  - 格距 `grid_nm` 写在每张图的标签里，`--grid off` 可以关掉。
 - **视觉记忆：** 每一帧、每个通道、每个扫描方向和每次中途快照都无损归档，各有固定 id。
   - `inspect` 可以对任一已归档区域、通道或去背景方式裁剪放大。
   - `read_values` 返回精确数值。
@@ -109,13 +156,43 @@ python -m vista_spm run
 
 设计规格见 [docs/DESIGN.md](docs/DESIGN.md)，静态基准说明见 [docs/staticbench.md](docs/staticbench.md)。
 
+## 工程实现
+
+| 问题 | 做法 | 位置 |
+|---|---|---|
+| 只让模型通过 harness 行动 | Claude Code 关闭全部内置工具。它唯一的 MCP 服务器是一个只用标准库的桥，接到带令牌校验的回环 RPC 服务器。 | [mcp_bridge.py](vista_spm/mcp_bridge.py)、[rpc.py](vista_spm/rpc.py)、[claude_runner.py](vista_spm/claude_runner.py) |
+| 一动一观 | 上一个动作的结果送到模型之前，`act` 一律拒绝执行。模拟器时钟只在动作执行时走。 | [host.py](vista_spm/host.py) |
+| 无损视觉记忆 | 每一帧、通道、方向和中途快照都带固定 id 归档。任何区域都能重新裁剪放大，或按精确值读取。像素坐标与扫描坐标精确互换，含亚像素。 | [archive.py](vista_spm/archive.py)、[viewtools.py](vista_spm/viewtools.py)、[frames.py](vista_spm/frames.py) |
+| 只测量、不下判断 | 带台阶候选的剖面、FFT 峰、椭圆高斯斑点拟合、亚像素帧配准和统计。回复里只有数字，没有"双针尖"这类判断。 | [measure.py](vista_spm/measure.py) |
+| 把模型看到的界面当作实验参数 | 每个臂的系统提示和工具 schema 都用哈希钉住，覆盖有无方格纸、有无 qPlus。第一轮矩阵可以从标签复现。 | [test_surface.py](tests/test_surface.py) |
+| 真值不进观测 | 工具回复、图像和动作描述不得带出隐藏的场景数值、容差或只给判分用的数据。真值只留在账本里，供判分和回放使用。 | [AGENTS.md](AGENTS.md)（不变量 1） |
+| 长回合 | 采用 VISTA 的压缩协议：Claude Code 压缩上下文之前，模型先写 WORKING.md，再由新的分段根据笔记和动作历史接着跑。 | [compact_hook.py](vista_spm/compact_hook.py)、[claude_runner.py](vista_spm/claude_runner.py) |
+| 计费安全 | 运行器从 Claude Code 子进程中去掉 API 凭据。会话初始化时如果报告的凭据来源是 API key，立即中止。 | [claude_runner.py](vista_spm/claude_runner.py) |
+| 可审计的消融 | 冻结代码快照并附哈希清单；按种子顺序运行矩阵，遇到用量上限就暂停；找出失败的回合重跑，已完成的回合可以离线重判。 | [scripts/](scripts/) |
+
+## 不装 MAST 能跑什么
+
+| 只用公开组件就能跑（Python 3.13、STM-Bench 84fb385 或更新、PyPI 上的包） | 需要 MAST |
+|---|---|
+| 测试：282 项通过，隔离的端到端回合测试跳过 | 闭环回合（`run`）：`act` 要靠 MAST 的运行时和技能在模拟器上执行 |
+| `tools`：每个臂的系统提示和工具 schema | `advisor` 和 `vigil-text` 两个臂：要用 MAST 的检测器和 VIGIL 视觉模型 |
+| 视觉记忆和测量工具，作用于 `.sxm` / `.dat` 文件 | 静态基准里的原子分辨题，它们的真值来自 MAST 的判定 |
+| 静态基准：`generate`、经典基线（`answer`）、`score`、`report`，以及用 Claude Code 的 `qa` | |
+| 为已记录的回合生成 `replay` 回放页面 | |
+
 ## 环境
 
 1. **Python 3.13。**
-2. **STM-Bench**，以可编辑方式安装：`pip install -e <STM-Bench 目录>`。它必须支持 `RuntimeHost(controller_timeout_s=...)`（[HamsterPark/STM-Bench#1](https://github.com/HamsterPark/STM-Bench/pull/1)），因为回合要把 MAST 的控制器回复超时提高到 60 s。
-3. **MAST**（私有），跑完整回合时需要。把它的 `MASTv2` 目录加到 `PYTHONPATH`，并把 `MAST_ROOT` 设为 MAST 仓库目录。
-4. **本仓库：** 在仓库根目录运行，或执行 `pip install -e . --no-deps`。
-5. **Claude Code** 命令行，用 Claude 订阅登录。
+2. **STM-Bench**，提交 84fb385 或更新。它提供 `RuntimeHost(controller_timeout_s=...)` 和 `.sxm`/`.dat` 读取器：
+
+   ```bash
+   pip install "stm-bench @ git+https://github.com/HamsterPark/STM-Bench@84fb385b990dd867580933c72b9ad9b5f6547d76"
+   ```
+
+   开发时改为安装本地目录：`pip install -e <STM-Bench 目录>`。
+3. **本仓库：** `pip install -e ".[dev]"`，或直接在仓库根目录运行。
+4. **MAST**，只有闭环回合需要。把它的 `MASTv2` 目录加到 `PYTHONPATH`，并把 `MAST_ROOT` 设为 MAST 仓库目录。
+5. **Claude Code** 命令行，用 Claude 订阅登录；回合和静态基准的 Claude 运行需要它。
 
 Windows 上还要设置 `PYTHONUTF8=1`。
 
@@ -139,10 +216,13 @@ python -m vista_spm run --scenario P4_atom --seeds 0 --arm mem [--out DIR] [--ru
 python -m vista_spm replay <回合目录> --single-file    # 为完成的回合生成 STM-Bench 回放页面
 
 python -m vista_spm.staticbench generate --out tmp/staticbench/v1 --types all --seeds 0-9
+python -m vista_spm.staticbench answer tmp/staticbench/v1 --mode baseline --out tmp/staticbench/baseline.jsonl
 python -m vista_spm.staticbench qa --driver claude --dataset tmp/staticbench/v1 --out tmp/staticbench/run1 ...
 ```
 
-输出默认写到 `STM_BENCH_DATA`（`~/stm_bench`）。`--grid off` 不画方格纸，回合目录名记为 `<臂>-nogrid`；`tools`、`preflight`、`run_matrix.py` 和静态基准的 `qa` 都支持这个选项。跑消融矩阵前先冻结代码，再从快照目录运行，见 [scripts/README.md](scripts/README.md)：
+输出默认写到 `STM_BENCH_DATA`（`~/stm_bench`）。`--grid off` 不画方格纸，回合目录名记为 `<臂>-nogrid`；`tools`、`preflight`、`run_matrix.py` 和静态基准的 `qa` 也都支持这个选项。
+
+跑消融矩阵前先冻结代码，再从快照目录运行，见 [scripts/README.md](scripts/README.md)：
 
 ```bash
 python scripts/snapshot.py tmp/code/m2
@@ -153,11 +233,13 @@ python scripts/aggregate.py <目录> --run-id m2 --csv rows.csv --md summary.md
 ## 测试
 
 ```bash
-python -m pytest -q -m "not isolated"     # 单元与集成测试；没有 MAST 时相关测试跳过
-python -m pytest -q -m isolated           # 端到端脚本化回合（每个进程只能有一个 RuntimeHost）
+python -m pytest -q -m "not isolated"     # 单元与集成测试，不需要 MAST
+python -m pytest -q -m isolated           # 端到端脚本化回合（需要 MAST；每个进程只能有一个 RuntimeHost）
 ```
 
-`tests/test_runner.py` 里调用真实 Claude Code 的测试，只有设置 `VISTA_LIVE_CLAUDE=1` 时才运行。
+在 STM-Bench 84fb385 上不装 MAST：282 项通过、4 项跳过、1 项未选中。装上 MAST，隔离的端到端回合也能通过。
+- **跳过的：** `tests/test_runner.py` 里调用真实 Claude Code 的测试，只有设置 `VISTA_LIVE_CLAUDE=1` 时才运行。
+- **未选中的：** 隔离的端到端回合。
 
 `tests/test_repo_hygiene.py` 检查三件事：
 
@@ -175,18 +257,19 @@ python -m pytest -q -m isolated           # 端到端脚本化回合（每个进
 | `scripts/` | 矩阵工具：快照、运行、汇总、找出需重跑的回合、离线重判 |
 | `results/` | 历次运行的汇总结果（存档，不再重新生成） |
 | `docs/DESIGN.md`、`docs/staticbench.md` | 设计规格、静态基准说明 |
-| `docs/notes/` | 调研、计划与第一版结果（中文，原样收录） |
+| `docs/notes/` | 调研、计划、第一版结果与参考实现修复（中文）。公开版删去了 MAST 的内部细节、未公开的模型评测和本地路径。 |
 
 ## 相关仓库
 
 | 仓库 | 可见性 | 关系 |
 |---|---|---|
-| [STM-Bench](https://github.com/HamsterPark/STM-Bench) | 公开 | 模拟器（`stmsim`）、场景与判分（`stmbench`） |
-| MAST | 私有 | `act` 背后的仪器运行时与技能，以及 VIGIL |
-| [dsh-spm](https://github.com/HamsterPark/dsh-spm) | 公开 | 视觉记忆的 TypeScript 移植 |
+| [STM-Bench](https://github.com/HamsterPark/STM-Bench) | 公开 | 模拟器（`stmsim`）、`.sxm`/`.dat` 读取器、场景与判分（`stmbench`） |
+| MAST | 私有 | `act` 背后的仪器运行时与技能、检测器和 VIGIL；本 harness 的维护版本所在 |
+| [MAST-public](https://github.com/HamsterPark/MAST-public) | 公开 | MAST 6.5.0 的有限公开源码版 |
+| [dsh-spm](https://github.com/HamsterPark/dsh-spm) | 公开 | 视觉记忆与测量工具的 TypeScript 移植 |
 
-dsh-spm 的一致性金样由 `vista_spm/frames.py`、`archive.py` 和 `viewtools.py` 生成。
+dsh-spm 的一致性金样由 `vista_spm/frames.py`、`archive.py`、`viewtools.py` 和 `measure.py` 生成。
 
 ## 许可
 
-尚未选定许可证，仓库目前私有。源自 VISTA 的代码在上游采用 MIT 许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+[MIT](LICENSE)。源自 VISTA 的代码在上游同样采用 MIT 许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

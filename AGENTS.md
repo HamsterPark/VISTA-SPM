@@ -1,14 +1,14 @@
 # AGENTS.md: repository guide
 
-VISTA-SPM is an image-first visual harness for a multimodal model operating the STM-Bench simulator through MAST. [README.md](README.md) gives the overview; [docs/DESIGN.md](docs/DESIGN.md) is the specification. Read `vista_spm/protocol.py` before changing any module.
+VISTA-SPM is an image-first visual harness for a multimodal model operating the STM-Bench simulator through MAST. This repository is a public demonstration snapshot; the maintained harness lives in MAST. [README.md](README.md) gives the overview; [docs/DESIGN.md](docs/DESIGN.md) is the specification. Read `vista_spm/protocol.py` before changing any module.
 
 ## What this repository depends on
 
-- **STM-Bench** (public; packages `stmbench` and `stmsim`), installed editable. It provides the scenarios, the simulator, `RuntimeHost` and the judge.
+- **STM-Bench** (public; packages `stmbench` and `stmsim`), installed from GitHub or editable from a checkout. It provides the scenarios, the simulator, `RuntimeHost` and the judge.
   - The harness imports a few private helpers from it: `stmbench.harness.episode`, `ic_driver` and `cli`.
-  - It needs `RuntimeHost(controller_timeout_s=...)`, from HamsterPark/STM-Bench#1.
+  - It must be commit 84fb385 or later, for `RuntimeHost(controller_timeout_s=...)` and the `.sxm`/`.dat` reader `stmsim.io.sxm_reader`.
   - Never edit STM-Bench from here. Propose the change there.
-- **MAST** (private), reached through `MASTv2` on `PYTHONPATH` and `MAST_ROOT`. It provides the skills behind `act`, VIGIL and the advisor's detectors; `.sxm`/`.dat` files are read with STM-Bench's `stmsim.io.sxm_reader`. Tests that import it carry `requires_mast`.
+- **MAST** (private; MAST-public is its limited public edition), reached through `MASTv2` on `PYTHONPATH` and `MAST_ROOT`, and needed only for closed-loop episodes, the advisor and vigil-text arms and the static benchmark's atomic-resolution truth. It provides the skills behind `act`, VIGIL and the advisor's detectors; `.sxm`/`.dat` files are read with STM-Bench's `stmsim.io.sxm_reader`. Tests that import it carry `requires_mast`.
 - **dsh-spm** (public) ports the visual memory to TypeScript. Its golden file `spec/golden/visual_memory.json` is exported from `vista_spm/frames.py`, `archive.py` and `viewtools.py`. After a change to their behaviour or model-facing vocabulary, re-export the golden there.
 
 ## Invariants
@@ -50,6 +50,5 @@ VISTA-SPM is an image-first visual harness for a multimodal model operating the 
 
 - Commit as `HamsterPark <121485008+HamsterPark@users.noreply.github.com>`, the GitHub noreply address.
 - Make one logical change per commit, with a present-tense subject and a body that says why.
-- The repository is private for now. Before making it public:
-  - choose a license;
-  - review `docs/notes/` and `results/`, which are verbatim records written for internal use.
+- This is the public repository, MIT-licensed under the name HamsterPark. Its history was cleaned for publication: in every version, the two older notes in `docs/notes/` lost MAST internals, unpublished model evaluations and local paths. The original history is kept privately; never push commits from a clone of it here.
+- Merge pull requests locally (`git merge --no-ff`, or a fast-forward) under the identity above. GitHub's web merge signs with the account's profile name.
