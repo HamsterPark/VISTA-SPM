@@ -452,6 +452,21 @@ def test_line_profile_finds_a_step(tmp_path):
                                                                     "p2": {"x": 4, "y": 3}}))
 
 
+def test_line_profile_refusal_gives_the_range_the_frame_covers(tmp_path):
+    """130 x 40 pixels shown at k = 1/3: the image is 44 x 14 pixels but the frame covers x <= 43.333.
+    m1's refusal said 0 <= x <= 44, a range that includes the point it refused."""
+    arch = Archive(tmp_path, display_max=64)
+    fid = _add(arch, 0, np.random.default_rng(0).normal(0, 1e-12, (40, 130)), _geom(nx=130, ny=40, w=13.0, h=4.0))
+    assert arch.get(fid).display_size == [44, 14]
+    msg = _err(M.line_profile(arch, {"frame": fid, "p1": {"x": 1, "y": 5}, "p2": {"x": 43.5, "y": 5}}))
+    assert "display image 44x14, i.e. 0 <= x <= 43.333, 0 <= y <= 13.333" in msg
+    _ok(M.line_profile(arch, {"frame": fid, "p1": {"x": 1, "y": 5}, "p2": {"x": 43.333, "y": 5}}))
+    k1 = Archive(tmp_path / "k2")                          # integer scale: the image is the frame
+    fid = _add(k1, 0, np.zeros((100, 200)), _geom(nx=200, ny=100, w=20.0, h=10.0))
+    assert "0 <= x <= 600, 0 <= y <= 300)" in _err(M.line_profile(k1, {"frame": fid, "p1": {"x": 1, "y": 5},
+                                                                       "p2": {"x": 601, "y": 5}}))
+
+
 def test_line_profile_long_lines_take_400_samples(tmp_path):
     """The description says the samples stop at 400 (m1 promised at most one scan pixel apart)."""
     assert "up to 400 evenly spaced samples" in M.LINE_PROFILE_TOOL.description

@@ -346,8 +346,11 @@ def _point_to_native(e: FrameEntry, p: Any, where: str) -> tuple[float, float]:
     tol = 1e-6
     if not (-tol <= col <= e.nx + tol and -tol <= row <= e.ny + tol):
         W, H = e.display_size
-        raise ArgError(f"{where} lies outside {e.fid} (display image {W}x{H}, i.e. 0 <= x <= {W}, "
-                       f"0 <= y <= {H})")
+        num, den = e.scale_pair
+        # the frame covers nx * k display pixels; a downsampled image is wider (ceil) by up to one pixel
+        x_max, y_max = (f"{math.floor(n * num / den * 1000) / 1000:g}" for n in (e.nx, e.ny))
+        raise ArgError(f"{where} lies outside {e.fid} (display image {W}x{H}, i.e. 0 <= x <= {x_max}, "
+                       f"0 <= y <= {y_max})")
     return float(min(max(col, 0.0), e.nx)), float(min(max(row, 0.0), e.ny))
 
 
