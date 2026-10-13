@@ -69,10 +69,12 @@ harness imports STM-Bench and MAST and never edits their files. Tests go to
 
 ## 4. Environment
 
-Python 3.13 with STM-Bench installed editable, MAST importable (`MASTv2` on `PYTHONPATH`,
-`MAST_ROOT` set) and this repository on the import path (run from its root, or
-`pip install -e . --no-deps`); `PYTHONUTF8=1` on Windows. STM-Bench must have
-`RuntimeHost(controller_timeout_s=...)` (HamsterPark/STM-Bench#1); episodes set it to 60 s.
+Python 3.13 with STM-Bench installed (commit 84fb385 or later, for
+`RuntimeHost(controller_timeout_s=...)`, which episodes set to 60 s, and the `.sxm`/`.dat`
+reader) and this repository on the import path (run from its root, or `pip install -e .`);
+`PYTHONUTF8=1` on Windows. Closed-loop episodes, the advisor and vigil-text arms and the static
+benchmark's atomic-resolution truth also need MAST or MAST-public importable (`MASTv2` on
+`PYTHONPATH`, `MAST_ROOT` set); MAST-public has no VIGIL weights.
 Machine-specific commands and the locations of local example frames are kept out of the
 repository, in `tmp/local_notes.md` (git-ignored).
 
@@ -83,8 +85,8 @@ and skips when it is unset. Real instrument data never enter the repository. Any
 forbids drive-rooted path literals and second readers of `STM_BENCH_*` / `MAST_ROOT` in
 package source and scripts, and the vendor name outside MAST's identifiers.
 
-Readers to reuse: `mast.io.nanonis_files.read_sxm`, `read_sxm_header`, `sxm_oriented_frames`,
-`read_dat`; `stmbench.human.render.frame_geometry`, `pixel_to_scan_nm`, `flatten`,
+Readers to reuse: STM-Bench's `stmsim.io.sxm_reader.read_sxm`, `read_sxm_header`, `oriented_frames`,
+`read_dat` (no MAST needed); `stmbench.human.render.frame_geometry`, `pixel_to_scan_nm`, `flatten`,
 `frame_array`, `render_dat`. The display-coordinate convention is
 `protocol.DISPLAY_CONVENTION`; the judge (`stmbench/trackB/claims.py`) compares reported
 positions in scan-frame nm with tolerances down to 0.16 nm (P4), so the transform must be

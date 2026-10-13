@@ -1,10 +1,10 @@
 # Results
 
-These files are records of past runs. They are aggregates only: episode ledgers, transcripts and frames stay outside the repository. Each file is kept as it was produced and is not regenerated. The analysis is in [docs/notes/2026-10-10-first-results.zh-CN.md](../docs/notes/2026-10-10-first-results.zh-CN.md) (Chinese).
+These files are records of past runs. They are aggregates only: episode ledgers, transcripts and frames stay outside the repository. Each file is kept as it was produced and is not regenerated. All of them were made with MAST and the STM-Bench of 2026-10-09/10, before its public rules (v1) and its later simulator changes, so they cannot be repeated from public components alone. The analysis is in [docs/notes/2026-10-10-first-results.zh-CN.md](../docs/notes/2026-10-10-first-results.zh-CN.md) (Chinese).
 
 ## m1: the first ablation matrix (2026-10-09/10)
 
-The run covered four arms (full, mem, img, vigil-text) × three scenarios (P1, P4, P5) × seeds 0–2, with claude-opus-5-5 at effort high. All 36 episodes are valid. The images had no graph paper (added 2026-10-12); `--grid off` reproduces them.
+The run covered four arms (full, mem, img, vigil-text) × three scenarios (P1, P4, P5) × seeds 0–2, with claude-opus-5-5 at effort high. All 36 episodes are valid. The images had no graph paper (added 2026-10-12). The tag `m1-surface` with `--grid off` reproduces the system prompt, tool surface and tool behaviour the episodes saw.
 
 | File | Contents |
 |---|---|
@@ -27,7 +27,7 @@ Points to keep in mind:
 | File | Contents |
 |---|---|
 | `staticbench/v1_baseline.md`, `.csv` | The 230-item v1 set answered by the classical baseline (92.6 %), with the oracle and abstain rows. |
-| `staticbench/v1_manifest.json` | Generation parameters, item counts, class balance and difficulty mix of the v1 set. The frames themselves are regenerated with `generate --types all --seeds 0-9`. |
+| `staticbench/v1_manifest.json` | Generation parameters, item counts, class balance and difficulty mix of the v1 set. The frames came from the simulator of 2026-10-10; `generate --types all --seeds 0-9` on STM-Bench 84fb385 or later builds a different set. |
 | `staticbench/pilot1.md`, `.csv` | Claude pilot: 12 items, one per type, with tools and with images only. |
 | `staticbench/hard1.md`, `.csv` | Claude on the 37-item hard set, with tools (31) and with images only (23); the classical baseline scored 30. |
 

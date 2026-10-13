@@ -4,10 +4,11 @@ README
 ------
 Everything the model sees of a scan goes through this module.
 
-* **Loading.** :func:`load_sxm` reads a ``.sxm`` with MAST's reader (``read_sxm`` +
-  ``sxm_oriented_frames``) into float32 arrays for every channel and direction, oriented so
-  that row 0 is the frame's top (high-v) edge and the backward pass is un-mirrored, in SI
-  units, NaN where a row was never acquired. :func:`load_dat` reads a spectrum.
+* **Loading.** :func:`load_sxm` reads a ``.sxm`` with STM-Bench's reader
+  (``stmsim.io.sxm_reader``: ``read_sxm`` + ``oriented_frames``; MAST is not needed) into
+  float32 arrays for every channel and direction, oriented so that row 0 is the frame's top
+  (high-v) edge and the backward pass is un-mirrored, in SI units, NaN where a row was never
+  acquired. :func:`load_dat` reads a spectrum.
   :func:`scan_from_arrays` wraps arrays a host captured from a scan in progress.
 * **Display coordinates** (``protocol.DISPLAY_CONVENTION``): a frame of ``nx`` x ``ny``
   pixels is shown at scale ``k`` (:func:`display_scale`): integer nearest-neighbour
@@ -132,7 +133,8 @@ def _sxm_header_text(path: Path, max_bytes: int = 1_048_576) -> str:
 
 
 def sxm_channel_units(path: str | Path) -> dict[str, str]:
-    """Channel name -> SI unit from the ``:DATA_INFO:`` block (MAST's parser drops it)."""
+    """Channel name -> SI unit from the ``:DATA_INFO:`` block (the reader keeps only the
+    channel names and directions)."""
     text = _sxm_header_text(Path(path))
     units: dict[str, str] = {}
     lines = text.splitlines()
@@ -177,7 +179,8 @@ def load_sxm(path: str | Path) -> ScanData:
     """Every channel and direction of a ``.sxm`` file, oriented, SI units, float32.
 
     Raises ``FileNotFoundError`` / ``ValueError`` with a message that says what is missing."""
-    from mast.io.nanonis_files import read_sxm, sxm_oriented_frames
+    from stmsim.io.sxm_reader import oriented_frames as sxm_oriented_frames
+    from stmsim.io.sxm_reader import read_sxm
 
     from stmbench.human.render import frame_geometry
 
@@ -203,7 +206,7 @@ def load_sxm(path: str | Path) -> ScanData:
         fwd, bwd = fr.get("forward"), fr.get("backward")
         flag = flags[i] if i < len(flags) else "both"
         if "bwd" in flag and "fwd" not in flag:
-            fwd, bwd = None, fwd          # MAST hands a backward-only channel back as "forward"
+            fwd, bwd = None, fwd          # the reader hands a backward-only channel back as "forward"
         got = False
         for direction, arr in (("forward", fwd), ("backward", bwd)):
             if arr is None:
@@ -314,7 +317,7 @@ def column_unit(name: str) -> str:
 
 def load_dat(path: str | Path) -> SpectrumData:
     """A spectrum file: columns (SI) and header; the first column is the sweep axis."""
-    from mast.io.nanonis_files import read_dat
+    from stmsim.io.sxm_reader import read_dat
 
     p = Path(path)
     if not p.is_file():

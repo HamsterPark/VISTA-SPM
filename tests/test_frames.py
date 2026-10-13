@@ -15,7 +15,6 @@ import pytest
 
 from stmbench.human.render import pixel_to_scan_nm
 from vista_spm import frames as F
-from tests.conftest import requires_mast
 
 
 # ── helpers shared with the other vista tests ──────────────────────────────
@@ -390,8 +389,7 @@ def test_render_spectrum_plot():
                           x_col="Bias (V)", y_cols=["Current (A)"], x_range=(900.0, 1000.0))
 
 
-# ── loading real file formats (MAST's reader) ──────────────────────────────
-@requires_mast
+# ── loading real file formats (STM-Bench's reader) ─────────────────────────
 @pytest.mark.parametrize("scan_dir", ["down", "up"])
 def test_load_sxm_orientation_units_and_nan_rows(tmp_path, scan_dir):
     ny, nx = 12, 16
@@ -421,7 +419,6 @@ def test_load_sxm_orientation_units_and_nan_rows(tmp_path, scan_dir):
     assert d.nm_per_px == pytest.approx(1.0) and d.setpoint_unit == "A"
 
 
-@requires_mast
 def test_load_sxm_constant_height_defaults_to_current(tmp_path):
     flat = np.full((8, 8), 1e-9)
     cur = np.random.default_rng(0).normal(5e-12, 1e-12, (8, 8))
@@ -431,7 +428,6 @@ def test_load_sxm_constant_height_defaults_to_current(tmp_path):
     assert d.feedback == "OFF"
 
 
-@requires_mast
 def test_load_dat(tmp_path):
     d = F.load_dat(write_dat(tmp_path / "s.dat"))
     assert list(d.columns) == ["Bias calc (V)", "Current (A)", "LI Demod 1 X (A)"]
@@ -441,7 +437,6 @@ def test_load_dat(tmp_path):
 
 
 def test_missing_files_raise_clear_errors(tmp_path):
-    pytest.importorskip("mast.io.nanonis_files")
     with pytest.raises(FileNotFoundError):
         F.load_sxm(tmp_path / "nope.sxm")
     with pytest.raises(FileNotFoundError):

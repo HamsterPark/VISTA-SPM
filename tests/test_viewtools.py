@@ -279,7 +279,6 @@ def test_compact_json_writes_null_for_non_finite_numbers():
 
 
 def test_inspect_spectrum_without_a_finite_x_value_replies_in_json(tmp_path):
-    pytest.importorskip("mast.io.nanonis_files")
     rows = ["Experiment\tbias spectroscopy\t", "X (m)\t1.250000E-09\t", "Y (m)\t-2.000000E-09\t", "",
             "[DATA]", "Bias calc (V)\tCurrent (A)"] + [f"NaN\t{1e-11 * i:.6E}" for i in range(5)]
     dat = tmp_path / "nan.dat"
@@ -293,7 +292,6 @@ def test_inspect_spectrum_without_a_finite_x_value_replies_in_json(tmp_path):
 
 def test_inspect_spectrum_default_plots_the_first_four_columns(tmp_path):
     """The y_col description says what the default plots (m1 said "every column")."""
-    pytest.importorskip("mast.io.nanonis_files")
     names = ["Bias calc (V)", "Current (A)", "LI Demod 1 X (A)", "LI Demod 1 Y (A)", "Z (m)", "Current [bwd] (A)"]
     rows = ["Experiment\tbias spectroscopy\t", "X (m)\t0.000000E+00\t", "Y (m)\t0.000000E+00\t", "", "[DATA]",
             "\t".join(names)] + ["\t".join(f"{(i + k) * 1e-11:.6E}" for k in range(6)) for i in range(7)]
@@ -308,7 +306,6 @@ def test_inspect_spectrum_default_plots_the_first_four_columns(tmp_path):
 
 
 def test_read_values_spectrum(tmp_path):
-    pytest.importorskip("mast.io.nanonis_files")
     from tests.test_frames import write_dat
 
     a = Archive(tmp_path / "s")

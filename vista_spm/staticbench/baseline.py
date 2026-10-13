@@ -37,7 +37,8 @@ from . import items as I
 
 def load_scan(path: str | Path) -> dict:
     """Oriented Z (and Current) forward/backward arrays in SI plus the frame geometry."""
-    from mast.io.nanonis_files import read_sxm, sxm_oriented_frames
+    from stmsim.io.sxm_reader import oriented_frames as sxm_oriented_frames
+    from stmsim.io.sxm_reader import read_sxm
 
     from stmbench.human.render import frame_geometry
 
@@ -53,7 +54,7 @@ def load_scan(path: str | Path) -> dict:
 
 
 def load_spectrum(path: str | Path) -> dict:
-    from mast.io.nanonis_files import read_dat
+    from stmsim.io.sxm_reader import read_dat
 
     d = read_dat(str(path))
     cols = {k: np.asarray(v, float) for k, v in (d.get("columns") or {}).items()}

@@ -11,7 +11,6 @@ import pytest
 from vista_spm import frames as F
 from vista_spm.archive import Archive, FrameEntry, sample_axis
 from vista_spm.protocol import ImageBlock
-from tests.conftest import requires_mast
 from tests.test_frames import write_dat, write_sxm
 
 GEOM = {"cx_nm": 10.0, "cy_nm": -4.0, "w_nm": 20.0, "h_nm": 10.0, "angle_deg": 12.0}
@@ -255,7 +254,6 @@ def test_entry_record_roundtrip():
         FrameEntry.from_record({"fid": "t0001.s0"})
 
 
-@requires_mast
 def test_add_scan_and_spectrum_from_files(tmp_path):
     ny, nx = 32, 48
     z = np.random.default_rng(0).normal(0, 5e-12, (ny, nx)) + 2e-9
