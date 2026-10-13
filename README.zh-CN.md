@@ -2,68 +2,112 @@
 
 [English](README.md) · 中文
 
-**让多模态大模型看见、记住、回看并测量扫描隧道显微镜给它的每一幅图。**
+**面向自主扫描探针显微实验的视觉推理层：观察、记忆、回看、测量与行动。**
 
-VISTA-SPM 是一个以图像为主的视觉 harness，供前沿多模态大模型操作扫描隧道显微镜（STM）。它把何恺明组的 VISTA（Han, Hu, Qiu, Wu, He，*VISTA: A Visual Harness for Reasoning in an Interactive World*，[arXiv 2610.02200](https://arxiv.org/abs/2610.02200)）从 ARC-AGI-3 游戏移植到 [STM-Bench](https://github.com/HamsterPark/STM-Bench) 的论文复现场景。STM-Bench 是一台模拟的 STM，配有按证据判分的裁判。
+原子尺度实验需要智能体能够跨时间地利用图像推理。关键证据可能是当前扫描中的晶格、早先图像中的一个缺陷，也可能是针尖修整前后很细微的变化。[VISTA](https://arxiv.org/abs/2610.02200) 为此提供了有力的出发点：让多模态模型直接观察图像，保留无损的视觉档案，并在理解不断深入时主动检索和检查证据。
 
-它要回答的问题是：应该让模型自己看像素，并给它每一帧的无损记忆、一把放大镜和精确读数；还是先用视觉模型把每幅图转成文字？
+**VISTA-SPM 将这一思路发展为面向扫描探针显微实验（SPM）的通用框架与可复用模块，以 STM 为主要应用场景。** 我们把视觉记忆、标定坐标、物理测量、实验笔记和动作—观测闭环组织在一起。这套框架服务于我们的 MAST 自动化工具包和 [dsh-spm](https://github.com/HamsterPark/dsh-spm)，其 Python 参考模块也可独立用于图像分析、智能体开发与基准评测。[STM-Bench](https://github.com/HamsterPark/STM-Bench) 则提供模拟仪器和基于证据的评估环境。
 
-![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![MIT license](https://img.shields.io/badge/license-MIT-green) ![Snapshot](https://img.shields.io/badge/snapshot-2026--10--13-lightgrey)
+![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![MIT license](https://img.shields.io/badge/license-MIT-green) ![参考实现](https://img.shields.io/badge/reference_implementation-2026--10--13-lightgrey)
 
-**状态：精简的公开演示版。**
-- 维护中的 harness 在 MAST 里。MAST 是实验室的 STM 自动化工具包，本身是私有仓库；[MAST-public](https://github.com/HamsterPark/MAST-public) 是它的有限公开版。
-- [dsh-spm](https://github.com/HamsterPark/dsh-spm) 把 harness 移植成了 TypeScript。
-- 本仓库保留一份能独立运行的快照：harness、282 项测试、静态感知基准和第一版消融结果。
-- 所有结果都来自模拟器，没有在真实仪器上跑过。
-- 视觉记忆、测量工具和静态基准只需要 STM-Bench；闭环回合还需要 MAST，它的公开版 MAST-public 可以替代（[详见下文](#不装-mast-能跑什么)）。
+[科学动机](#为什么在-stm-中参照-vista) · [可复用模块](#通用框架与可复用模块) · [实验结果](#第一版结果2026-10-10) · [环境配置](#环境) · [相关仓库](#相关仓库)
 
-## 为什么要给显微镜套一个 ARC-AGI-3 的 harness
+## 为什么在 STM 中参照 VISTA
 
-### STM 简介
+### 让视觉证据参与整个推理过程
 
-扫描隧道显微镜让一根尖锐的金属针尖停在导电表面上方几埃处，一边扫描一边记录隧穿电流，图像能分辨出单个原子。同一根针尖还能测谱，也能把单个原子在表面上拖动。仪器给出的一切都要经过这根针尖，而针尖顶端的原子结构谁也看不见，用着用着还会变。[MAST-public 的 README](https://github.com/HamsterPark/MAST-public/blob/main/README.zh.md) 对 STM、以及它为什么难以自主操作，讲得更详细。
+Han 等人的 *VISTA: A Visual Harness for Reasoning in an Interactive World* 将持久保存、主动查阅视觉证据放在了核心位置。智能体直接看图，检索历史观测，放大相关区域，读取精确像素，并维护可修订的笔记，从而让已有多模态模型能够在长程交互中持续进行视觉推理。论文在 25 个公开 ARC-AGI-3 游戏上，以 GPT-5.6 Sol、max 推理强度进行的逐步消融中，加入无损视觉记忆和 `inspect` 后，相对人类动作效率（RHAE）从 70.05 提升至 94.10；再加入精确像素读取后达到 99.00。这些结果为我们选择这一架构提供了依据。[VISTA 消融研究](https://arxiv.org/html/2610.02200v1#S4.SS3) · [上游实现](https://github.com/joshhhhhan/VISTA)。
 
-### 同一类问题
+这一原则在 STM 中具有直接的科学意义。把一幅图概括成“干净的台面”或“针尖状态较差”，实际上已经从丰富的测量信息中选择了一种解释。随着实验推进，先前忽略的缺陷、重复特征或扫描线突变，可能成为判断的关键。保留原始观测，使智能体能够重新检查证据、比较不同解释，并选择足以消除歧义的下一项测量。**视觉记忆由此成为实验方法的一部分。**
 
-ARC-AGI-3 把智能体放进规则和目标都隐藏的游戏里。智能体要自己动手，看画面怎么变，从帧里推出规则；评分看它比人少用多少步。操作 STM 是同一类问题，只是多了物理：
+### STM 的感知与控制紧密相连
 
-| | ARC-AGI-3 游戏 | STM 实验（STM-Bench 的一个场景） |
+扫描隧道显微镜利用原子级尖锐的针尖探测导电表面。隧穿电流对针尖—样品间距和电子结构高度敏感；在恒流成像中，反馈系统记录维持设定电流所需的针尖高度。因此，原子尺度的图像衬度同时承载样品、针尖和测量条件的信息。隧穿电流与局域电子态之间的联系是 STM 理论的核心内容（[Tersoff 与 Hamann，1985](https://doi.org/10.1103/PhysRevB.31.805)）。解释一个看似凸起的特征，需要结合偏压、空间环境和采集历史。
+
+操作者还必须从研究样品所用的同一组数据中，推断仪器自身的状态。针尖顶端发生变化，可能改变整幅图的衬度；热漂移和压电蠕变改变指令坐标与实际位置的对应关系；反馈参数和扫描方向影响特征的呈现方式；一次电压脉冲可能在改善针尖的同时改变局部表面。[MAST-public 对 STM 控制难点的介绍](https://github.com/HamsterPark/MAST-public/blob/main/README.zh.md) 展开了这些实际问题：自主 STM 本质上需要处理**部分可观测、随时间变化的系统，以及连续的实验设计与决策**。
+
+自主 SPM 研究已经展示了在这一闭环中引入学习方法的价值。DeepSPM 将区域选择、图像质量评估和用于针尖修整的强化学习结合起来（[Krull 等，2020](https://doi.org/10.1038/s42005-020-0317-3)）；强化学习也被用于针尖条件不确定且会发生变化的原子操纵（[Chen 等，2022](https://doi.org/10.1038/s41467-022-35149-w)）。VISTA-SPM 沿着这一实验研究脉络，提供统一的接口，让通用多模态模型能够查阅证据、调用定量工具，并在不同任务中持续修订实验方案。
+
+## STM 与 ARC-AGI-3 的相似之处
+
+### 图像都包含需要推理的空间结构
+
+ARC 的视觉任务依赖物体、重复、对称性、边界和相对位置之间的关系。STM 图像同样包含丰富的空间结构：周期晶格、重构畴、台阶边缘、孤立吸附物、空位，以及重复或畸变的特征。关键信息可能横跨整个台面，也可能只占几个像素。理解这些信息，需要在全局视野与局部细节之间切换，同时保留坐标关系。
+
+这正是 VISTA 的图像访问与 `inspect` 操作适合 STM 的原因。模型可以先观察整个重构图案，再放大一个缺陷，随后回到历史扫描中的同一位置。VISTA-SPM 为这一过程加入扫描几何与物理单位，使视觉关系能够进一步转化为关于周期、位移、高度或谱学响应的可检验陈述。
+
+### 实验都需要在交互中增进理解
+
+[ARC-AGI-3](https://arxiv.org/abs/2603.24621) 在陌生的交互环境中评估智能体，要求它通过探索发现动作如何改变画面、怎样推进任务。STM 有已知的物理规律和明确的科学目标，但每次实验面对的针尖—样品系统仍然只有部分状态已知。两者可迁移的推理结构是：提出假设，选择有信息量的动作，检查变化，再更新当前认识。
+
+| 推理需求 | ARC-AGI-3 | STM 实验 |
 |---|---|---|
-| 智能体看到什么 | 每次动作后一帧 64×64、16 色的画面 | 每次仪器动作后的扫描帧（形貌、电流，正反扫）和谱 |
-| 什么是隐藏的 | 规则与目标 | 针尖状态、漂移、样品，以及按种子抽取的场景数值 |
-| 怎么行动 | 每次一个游戏动作 | 每次一个仪器动作：扫描、设偏压、移针、脉冲、轻戳、测谱、拖原子 |
-| 动作的代价 | 用的动作越少，分越高 | 仪器时间和动作数；一次针尖脉冲、一次拖原子都无法撤回 |
-| 证据在哪里 | 动作前后画面的变化 | 帧与帧的差别：原子动了没有？针尖变了没有？样品漂了没有？ |
-| 怎样算成功 | 通关 | 复现论文的结论，并给出判分要求的测量 |
+| 理解空间场景 | 物体、重复图案、边界及其相互关系 | 晶格、台阶、吸附物、缺陷与扫描伪影 |
+| 推断隐藏状态 | 发现动作效果和环境规则 | 推断针尖状态、漂移、局部样品状态与测量稳定性 |
+| 获取有用证据 | 用探索动作区分可能的规则 | 改变偏压、重新扫描、比较正反扫、测谱或修整针尖 |
+| 追踪时间变化 | 比较动作前后的画面 | 区分原子移动、视野漂移和针尖衬度变化 |
+| 维护当前认识 | 在连续交互中保留已经发现的规律 | 记录稳定参照物、测量条件、已检验假设和待完成的对照 |
+| 有效使用动作 | 相对人类以较少动作完成任务 | 有效利用仪器时间，并考虑操作对针尖或样品的影响 |
+| 验证任务进展 | 达到环境的完成条件 | 用相应的采集证据支撑科学结论 |
 
-两者的关键证据往往都来自跨时间的比较：动作前的一帧对比动作后的一帧。VISTA 的帧档案和放大镜给模型的正是这种能力。
+例如，一个原子在操纵后看起来发生了位移。可信的判断需要把它与邻近参照物比较，检查整幅图是否漂移，并观察其他特征的形状是否因针尖变化而改变。相关证据跨越多幅图像和多个尺度。帧档案、局部检查、图像配准与标定坐标，使这一判断过程能够明确地执行和复核。
 
-在[调研笔记](docs/notes/2026-10-09-research-and-plan.zh-CN.md)梳理的工作中，前沿大模型在真实 STM 上的智能体报告只有 quailbot（[arXiv 2609.27302](https://arxiv.org/abs/2609.27302)）一篇。它的失败案例都是人对比动作前后的帧诊断出来的。
+STM 为这种共同结构增加了连续信号、噪声、物理单位，以及依赖采集条件的图像衬度。**VISTA-SPM 将 VISTA 的视觉交互方法发展为理解仪器与测量语境的实验工作流。**
 
-VISTA 没有训练任何视觉模型，增益全部来自 harness。它在 ARC-AGI-3 的 25 个公开游戏上做的消融里：
-- 把官方的文本网格换成图像，RHAE 从 13.33 升到 47.32；
-- 再经过几步，其中笔记 +4.2、无损记忆加 `inspect` +24.1、`read_pixels` +4.9，最后到 99.00。
+## 通用框架与可复用模块
 
-### 需要改什么
+我们的构想是围绕持续保存的视觉记录来组织自主显微实验：
 
-STM 的帧不是 ARC 的帧：
-- 里面是带物理单位的连续高度和电流，有噪声、漂移和针尖造成的模糊；
-- 要紧的特征可能只是 512 像素的帧里几个像素宽的一个原子；
-- 谱是曲线，不是图片。
+```text
+观察 → 归档证据 → 提出或修订假设
+ ↑                         ↓
+核验结果 ← 执行动作 ← 回看、比较与测量
 
-所以移植保留了 VISTA 的全套工具（图像、笔记、全部帧的档案、放大镜 `inspect`、精确读数和方格纸），改造其中两样，再加上物理学家会伸手去拿的东西：
+实验笔记贯穿整个循环，保存当前认识与实验计划。
+```
 
-- 精确读数 `read_values` 给出 pm、pA 或 V 的数值，而不是调色板编号；
-- 方格纸改用纳米单位，格距 1、2 或 5 × 10ⁿ nm，代替 ARC 的单元格线；
-- 五个只测量、不下判断的测量工具：`line_profile`、`fft_peaks`、`detect_blobs`、`diff` 和 `stats`；
-- 谱按需绘制，也可以按数值读取；
-- 仪器时钟只在动作执行时走，模型思考不消耗仪器时间。
+这套框架整合了四项能力：
 
-MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIGIL 把每幅图转成文字。本仓库在 STM-Bench 模拟器上用 VISTA 的路线与之对照，并保留 VIGIL 文本作为对照臂。
+1. **持续保存、随时回看的证据。** 将扫描通道、正反扫、中途扫描、谱和派生测量以稳定的帧 ID 归档。新的问题出现时，模型可以重新查阅相关证据。
+2. **以计量为基础的视觉推理。** 将局部检查与像素—扫描坐标换算、纳米网格、数值读取、剖面、傅里叶分析、特征定位和配准差分结合起来。工具给出测量，模型将测量与物理假设联系起来。
+3. **长程实验中的连续性。** `GUIDE.md` 保存智能体可修订的实验认识；`WORKING.md` 在上下文更替时保留当前计划与状态；动作历史连接每项观测与产生它的干预。
+4. **对模型接口进行可控评估。** 在相同场景中，分别配置图像、笔记、记忆、数值读出和额外测量工具，把观测与工具接口作为明确的实验变量。
+
+这一贡献具有独立的适用范围：显微实验普遍需要把图像、测量与不断更新的实验认识联系起来。这些模块解决的正是科学数据与智能体推理之间的共性需求。MAST 提供了一种执行环境；dsh-spm 则展示了如何将同一套视觉记忆和测量设计带入另一种语言与智能体宿主。
+
+| 模块 | 提供的能力 | 复用入口 |
+|---|---|---|
+| 图像与坐标 | 读取 `.sxm` / `.dat`，统一通道方向，渲染视图，换算显示位置与扫描坐标 | [frames.py](vista_spm/frames.py) |
+| 视觉档案 | 保存采集数组与元数据，检索任意帧，重新渲染所选区域 | [archive.py](vista_spm/archive.py) |
+| 检查与读值 | 用 `inspect` 检查视觉细节；用 `read_values` 读取 pm、pA、V 或 Hz 数值 | [viewtools.py](vista_spm/viewtools.py) |
+| 定量工具 | `line_profile`、`fft_peaks`、`detect_blobs`、`diff` 和 `stats` | [measure.py](vista_spm/measure.py) |
+| 笔记与工具协议 | 持久实验笔记，以及供智能体宿主使用的结构化文字与图像回复 | [notes.py](vista_spm/notes.py)、[protocol.py](vista_spm/protocol.py) |
+| 评估 | STM-BabyVision 静态感知任务与可配置的闭环消融 | [静态基准](docs/staticbench.md)、[设计规格](docs/DESIGN.md) |
+
+例如，视觉模块可以独立于 MAST 运行时，对已有扫描文件进行检查：
+
+```python
+from vista_spm.archive import Archive
+from vista_spm.viewtools import inspect
+from vista_spm.measure import stats
+
+archive = Archive("tmp/visual-memory")
+frame = archive.add_scan(turn=0, sxm_path="scan.sxm")
+view = inspect(archive, {
+    "question": "Examine the terrace and its defects.",
+    "views": [{"frame": frame.fid, "label": "Terrace overview"}],
+})
+measurement = stats(archive, {"frame": frame.fid})
+# view.images contains labelled PNGs; measurement.text contains numerical JSON.
+```
+
+可复用的视觉模块使用 STM-Bench 的文件读取器和科学计算 Python 依赖。本仓库的闭环执行使用 MAST 的运行时与技能，配套运行器通过 Claude Code 承载模型。持续维护的 MAST 集成版和 [dsh-spm](https://github.com/HamsterPark/dsh-spm) 中的 TypeScript 实现，将这一设计应用于各自的系统。本仓库保留 Python 参考实现、测试、静态基准和首轮模拟器消融实验。[依赖详情](#独立使用与运行时集成)。
 
 ## 第一版结果（2026-10-10）
 
-实验设置：
+**首轮模拟器研究展示了保留与回看视觉证据的价值。** `mem` 臂在 9 个回合中完整复现了 6 个，只有最新图像的臂为 2 个；在 37 道静态感知题中，Claude 使用工具时答对 31 道，只看图时答对 23 道。两组实验分别从连续实验交互与单项视觉测量两个层面考察了这一框架。
+
+闭环实验设置：
 
 - **模型：** claude-opus-5-5，effort high。
 - **动作：** V0 原语动作集。
@@ -87,20 +131,17 @@ MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIG
 | mem 对 vigil-text | 6 | 3 | 0 |
 | full 对 mem | 0 | 8 | 1 |
 
-每格只有 3 个种子，区分不了 full 和 mem。另外，每一步都不止改了一样东西：
+在这轮矩阵中，配对结果支持 `mem` 相对 `img` 和 `vigil-text` 的优势。这里，`mem` 同时增加了笔记、帧档案和 `inspect`；`full` 又增加了数值读出和五个测量工具。每个场景使用三个种子，这轮实验刻画的是这些组合的表现，各组件的独立贡献需要进一步的针对性消融。两个较完整的臂也采用了不同策略：`mem` 平均每回合放大 7.8 次；`full` 平均测量 15 次、放大 2 次。
 
-- mem 比 img 多了三样：笔记、帧档案和 `inspect`。
-- full 比 mem 多了两类工具：精确读数和五个测量工具。
+**判分背景。** 结论通过比例未做机会校正。2026-10-12 的审计给出了以下固定常数基线，前提是满足采集证据要求：
 
-两臂在回合里用不同的工具做同一件事：mem 平均每回合放大 7.8 次，full 平均测量 15 次、只放大 2 次。
+| 场景 | 固定常数通过的结论比例 | 同一组常数的完整复现率 |
+|---|---|---|
+| P1 | 约 0.26 | 约 2–3% |
+| P4 | 0 | 0 |
+| P5 | 约 0.41 | 约 13% |
 
-**结论通过比例没有做机会校正。** 2026-10-12 对 STM-Bench 的审计发现，在证据要求满足的前提下，只报固定常数就能通过这些比例的结论：
-
-- P1 约 0.26；
-- P5 约 0.41；
-- P4 为 0。
-
-同一组常数的完整复现率：P1 约 2–3%，P5 为 13%，P4 为 0。读上表时要对照这些地板，并结合完整复现数一起看。
+这些基线为结合配对结果、完整复现数和结论通过比例来理解实验表现提供了参照。
 
 **静态感知基准（STM-BabyVision），37 道难题：**
 
@@ -112,10 +153,7 @@ MAST 原来的智能体通过微调过的视觉模型 VIGIL 看 STM 图像，VIG
 
 两个 Claude 臂的差距几乎全部来自鱼骨条纹周期，这类题需要精确测量。
 
-**这些数字是什么。** 它们都是存档记录：
-- **来源。** 这些运行用的是 MAST 和 2026-10-09/10 的 STM-Bench，早于它公开的规则 v1 和之后的模拟器改动。冻结代码的文件哈希见 [results/m1/code_manifest.json](results/m1/code_manifest.json)。只用公开组件无法重跑这些回合。
-- **标签能复现什么。** 标签 `m1-surface` 加 `--grid off` 能复现这些回合看到的系统提示、工具界面和工具行为。2026-10-13 修参考实现时又改了部分工具（[说明](docs/notes/2026-10-13-reference-fixes.zh-CN.md)）。
-- **细节在哪里。** 细节与局限见 [docs/notes/2026-10-10-first-results.zh-CN.md](docs/notes/2026-10-10-first-results.zh-CN.md)，表格在 [results/](results/)。
+**实验范围与版本记录。** 上述结果均来自模拟器实验。存档运行使用 MAST 和 2026-10-09/10 版本的 STM-Bench，早于公开规则 v1 及后续模拟器改动。精确重跑历史实验需要当时的依赖快照，其中包含私有组件；冻结文件的哈希见 [results/m1/code_manifest.json](results/m1/code_manifest.json)。`m1-surface` 标签配合 `--grid off` 保留了当时面向模型的提示词、工具 schema 和工具行为；当前工具已纳入 [2026-10-13 参考实现修复](docs/notes/2026-10-13-reference-fixes.zh-CN.md)。实验细节见[首轮结果报告](docs/notes/2026-10-10-first-results.zh-CN.md)，汇总表见 [results/](results/)。
 
 ## 工作方式
 
@@ -128,7 +166,7 @@ python -m vista_spm run
        claude ── stdio MCP ──► mcp_bridge.py（只用标准库）──► RpcServer ──► VistaHost
 ```
 
-- **观测：** 原始帧，按整数倍最近邻缩放。标签和数字放在图像旁边的文字里。
+- **观测：** 从采集数组渲染视图，放大采用最近邻方式，超大图像采用分块均值缩小。标签和数字放在图像旁边的文字里；归档数组始终可用于细节检查和数值测量。
 - **方格纸：** 扫描图上唯一画的东西，相当于 VISTA 在 ARC 帧上画的格线。
   - 它是一层淡琥珀色的纳米方格，格距取 1、2 或 5 × 10ⁿ nm，从整帧左上角起算。
   - 每个视野最多 16 格，所以放大后格子会变细。
@@ -164,13 +202,13 @@ python -m vista_spm run
 | 一动一观 | 上一个动作的结果送到模型之前，`act` 一律拒绝执行。模拟器时钟只在动作执行时走。 | [host.py](vista_spm/host.py) |
 | 无损视觉记忆 | 每一帧、通道、方向和中途快照都带固定 id 归档。任何区域都能重新裁剪放大，或按精确值读取。像素坐标与扫描坐标精确互换，含亚像素。 | [archive.py](vista_spm/archive.py)、[viewtools.py](vista_spm/viewtools.py)、[frames.py](vista_spm/frames.py) |
 | 只测量、不下判断 | 带台阶候选的剖面、FFT 峰、椭圆高斯斑点拟合、亚像素帧配准和统计。回复里只有数字，没有"双针尖"这类判断。 | [measure.py](vista_spm/measure.py) |
-| 把模型看到的界面当作实验参数 | 每个臂的系统提示和工具 schema 都用哈希钉住，覆盖有无方格纸、有无 qPlus。第一轮矩阵可以从标签复现。 | [test_surface.py](tests/test_surface.py) |
+| 把模型看到的界面当作实验参数 | 每个臂的系统提示和工具 schema 都用哈希钉住，覆盖有无方格纸、有无 qPlus。标签保留首轮矩阵面向模型的接口与工具行为。 | [test_surface.py](tests/test_surface.py) |
 | 真值不进观测 | 工具回复、图像和动作描述不得带出隐藏的场景数值、容差或只给判分用的数据。真值只留在账本里，供判分和回放使用。 | [AGENTS.md](AGENTS.md)（不变量 1） |
 | 长回合 | 采用 VISTA 的压缩协议：Claude Code 压缩上下文之前，模型先写 WORKING.md，再由新的分段根据笔记和动作历史接着跑。 | [compact_hook.py](vista_spm/compact_hook.py)、[claude_runner.py](vista_spm/claude_runner.py) |
 | 计费安全 | 运行器从 Claude Code 子进程中去掉 API 凭据。会话初始化时如果报告的凭据来源是 API key，立即中止。 | [claude_runner.py](vista_spm/claude_runner.py) |
 | 可审计的消融 | 冻结代码快照并附哈希清单；按种子顺序运行矩阵，遇到用量上限就暂停；找出失败的回合重跑，已完成的回合可以离线重判。 | [scripts/](scripts/) |
 
-## 不装 MAST 能跑什么
+## 独立使用与运行时集成
 
 | 只需 STM-Bench（Python 3.13、STM-Bench 84fb385 或更新、PyPI 上的包） | 需要 MAST 或 MAST-public |
 |---|---|
@@ -206,14 +244,12 @@ Windows 上还要设置 `PYTHONUTF8=1`。
 
 ## 计费
 
-回合只走 Claude 订阅。STM-Bench 的 RuntimeHost 会把 MAST 的模型服务商密钥导出到进程环境变量里，早期回合因此记在了 API key 上。
-
-`RunnerConfig.auth = "subscription"` 是默认值，它做两件事：
+运行器默认使用 Claude 订阅认证（`RunnerConfig.auth = "subscription"`）。为在 MAST 将模型服务商凭据导出到环境变量后继续保持这一选择，运行器执行两项检查：
 
 - 从 Claude Code 子进程中去掉 `ANTHROPIC_API_KEY` 和 `ANTHROPIC_AUTH_TOKEN`；
 - 会话初始化时如果报告的认证来源是 API key，立即中止该会话。
 
-请保持这个默认值。
+使用订阅运行时，保持这一默认配置。
 
 ## 用法
 
@@ -265,18 +301,21 @@ python -m pytest -q -m isolated           # 端到端脚本化回合（需要 MA
 | `scripts/` | 矩阵工具：快照、运行、汇总、找出需重跑的回合、离线重判 |
 | `results/` | 历次运行的汇总结果（存档，不再重新生成） |
 | `docs/DESIGN.md`、`docs/staticbench.md` | 设计规格、静态基准说明 |
-| `docs/notes/` | 调研、计划、第一版结果与参考实现修复（中文）。公开版删去了 MAST 的内部细节、未公开的模型评测和本地路径。 |
+| `docs/notes/` | 调研、计划、第一版结果与参考实现修复（中文） |
 
 ## 相关仓库
 
-| 仓库 | 可见性 | 关系 |
-|---|---|---|
-| [STM-Bench](https://github.com/HamsterPark/STM-Bench) | 公开 | 模拟器（`stmsim`）、`.sxm`/`.dat` 读取器、场景与判分（`stmbench`） |
-| MAST | 私有 | `act` 背后的仪器运行时与技能、检测器和 VIGIL；本 harness 的维护版本所在 |
-| [MAST-public](https://github.com/HamsterPark/MAST-public) | 公开 | MAST 6.5.0 的有限公开源码版；在这里可以替代 MAST，但没有 VIGIL（[详见上文](#不装-mast-能跑什么)） |
-| [dsh-spm](https://github.com/HamsterPark/dsh-spm) | 公开 | 视觉记忆与测量工具的 TypeScript 移植 |
+VISTA-SPM 在我们的 SPM 研究软件中承担视觉推理层的角色。相关项目将仪器操作、实验评估与科学解释连接起来：
 
-dsh-spm 的一致性金样由 `vista_spm/frames.py`、`archive.py`、`viewtools.py` 和 `measure.py` 生成。
+| 仓库 | 在研究流程中的作用 | 与 VISTA-SPM 的联系 |
+|---|---|---|
+| [MAST-public](https://github.com/HamsterPark/MAST-public) | STM 自动化：仪器运行时、技能、状态反馈与实验工作流 | MAST 的有限公开版可执行本仓库的闭环动作；其 README 系统介绍自主 STM 的科学动机；持续维护的视觉 harness 位于 MAST 中。 |
+| [dsh-spm](https://github.com/HamsterPark/dsh-spm) | DeepSeek Harness 中的 SPM 工具与运行时集成 | 将视觉记忆、标定读出和测量工具移植到 TypeScript，并用本 Python 实现导出的参考结果检验一致性。 |
+| [STM-Bench](https://github.com/HamsterPark/STM-Bench) | 模拟显微镜、科学场景、采集记录与基于证据的判分 | 为 VISTA-SPM 消融提供仪器与评估环境，同时提供 `.sxm` / `.dat` 读取器。 |
+| [AFS3D](https://github.com/HamsterPark/AFS3D) | 三维原子力谱：漂移校正、力重建与实验—理论对照 | 互补的科学分析流程，体现空间配准、定量信号和可追溯比较在 SPM 中的价值。 |
+| [dft-spm-toolkit](https://github.com/HamsterPark/dft-spm-toolkit) | 基于电子结构计算和探针粒子模型的 STM/nc-AFM 图像模拟 | 将图像衬度与原子结构、探针响应和成像机制联系起来的互补研究工具。 |
+
+MAST 运行时提供动作，VISTA-SPM 组织视觉证据，STM-Bench 评估由此形成的实验行为。在 dsh-spm 中，[运行时集成](https://github.com/HamsterPark/dsh-spm/blob/master/packages/bundle/dsh-spm/src/visual-harness.ts) 将 TypeScript 档案、观测传递和动作门控连接起来；其一致性参考数据由本仓库的 `frames.py`、`archive.py`、`viewtools.py` 和 `measure.py` 生成。这给出了从共同科学设计到不同智能体系统实现的具体复用途径。
 
 ## 许可
 

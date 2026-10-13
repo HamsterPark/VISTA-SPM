@@ -2,68 +2,112 @@
 
 English · [中文](README.zh-CN.md)
 
-**Letting a multimodal model see, remember, re-inspect and measure what a scanning tunnelling microscope shows it.**
+**A visual reasoning layer for autonomous scanning probe microscopy: see, remember, revisit, measure, and act.**
 
-VISTA-SPM is an image-first visual harness for frontier multimodal models that operate a scanning tunnelling microscope (STM). It ports VISTA (Han, Hu, Qiu, Wu, He, *VISTA: A Visual Harness for Reasoning in an Interactive World*, [arXiv 2610.02200](https://arxiv.org/abs/2610.02200)) from the ARC-AGI-3 games to the paper-reproduction scenarios of [STM-Bench](https://github.com/HamsterPark/STM-Bench), a simulated STM with an evidence-based judge.
+Atomic-scale experiments demand an agent that can reason with images over time. A useful observation may be a lattice in the current scan, a defect in an earlier frame, or a subtle change after a tip-conditioning pulse. [VISTA](https://arxiv.org/abs/2610.02200) offers a compelling starting point: give a multimodal model direct visual observations, a lossless archive, and tools to retrieve and inspect the evidence as its understanding develops.
 
-Its question: should the model look at the pixels itself, with a lossless memory of every frame, a magnifier and an exact readout? Or should a vision model turn each frame into text first?
+**VISTA-SPM develops this principle into a general framework and reusable modules for scanning probe microscopy (SPM), with STM as its primary setting.** We combine visual memory with calibrated coordinates, physical measurements, experimental notes, and an action–observation loop. The framework serves our MAST automation toolkit and [dsh-spm](https://github.com/HamsterPark/dsh-spm), while its Python reference modules also support independent image analysis, agent development, and benchmarking. [STM-Bench](https://github.com/HamsterPark/STM-Bench) supplies the simulated instrument and evidence-based evaluation.
 
-![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![MIT license](https://img.shields.io/badge/license-MIT-green) ![Snapshot](https://img.shields.io/badge/snapshot-2026--10--13-lightgrey)
+![Python 3.13](https://img.shields.io/badge/python-3.13-blue) ![MIT license](https://img.shields.io/badge/license-MIT-green) ![Reference implementation](https://img.shields.io/badge/reference_implementation-2026--10--13-lightgrey)
 
-**Status: a slim public demonstration.**
-- The maintained harness lives inside MAST, the lab's STM automation toolkit. MAST is private; [MAST-public](https://github.com/HamsterPark/MAST-public) is its limited public edition.
-- [dsh-spm](https://github.com/HamsterPark/dsh-spm) ports the harness to TypeScript.
-- This repository keeps a self-contained snapshot: the harness, its 282 tests, the static perception benchmark and the first ablation results.
-- All results come from the simulator. Nothing here has run on a real instrument.
-- The visual memory, the measurement tools and the static benchmark need only STM-Bench. Closed-loop episodes also need MAST, and its public edition MAST-public can stand in for it ([details](#what-runs-without-mast)).
+[Scientific motivation](#why-vista-for-stm) · [Reusable modules](#a-general-framework-with-reusable-modules) · [Results](#first-results-2026-10-10) · [Setup](#setup) · [Related repositories](#related-repositories)
 
-## Why an ARC-AGI-3 harness for a microscope
+## Why VISTA for STM
 
-### STM in brief
+### Visual access is part of the reasoning method
 
-A scanning tunnelling microscope holds a sharp metal tip a few ångströms above a conducting surface and records the tunnelling current while it scans, so its images resolve single atoms. The same tip takes spectra and can drag single atoms across the surface. Everything the instrument shows passes through that tip, whose atomic structure nobody can see and which changes as it is used. [MAST-public's README](https://github.com/HamsterPark/MAST-public#what-is-stm) explains STM, and why it is hard for autonomous agents, at more length.
+The central contribution of Han et al.'s *VISTA: A Visual Harness for Reasoning in an Interactive World* is to make visual evidence persist and remain available for active inspection. The agent sees images directly, retrieves earlier observations, enlarges relevant regions, reads exact pixels, and maintains revisable notes. This gives an existing multimodal model a practical way to sustain visual reasoning through a long interaction. In the paper's sequential ablation with GPT-5.6 Sol at max reasoning effort on 25 public ARC-AGI-3 games, adding lossless visual memory and `inspect` raises Relative Human Action Efficiency (RHAE) from 70.05 to 94.10; adding exact pixel readout raises it to 99.00. These results motivate our choice of architecture. [VISTA ablation study](https://arxiv.org/html/2610.02200v1#S4.SS3) · [upstream implementation](https://github.com/joshhhhhan/VISTA).
 
-### The same kind of problem
+For STM, this principle has a direct scientific role. Describing an image as “a clean terrace” or “a poor tip” selects one interpretation of a much richer measurement. Later evidence may make a previously overlooked defect, duplicated feature, or scan-line discontinuity decisive. Preserving the original observations lets the agent revisit that evidence, compare competing explanations, and choose a measurement that resolves the ambiguity. **Visual memory becomes part of the experimental method.**
 
-ARC-AGI-3 drops an agent into games whose rules and goals are hidden. The agent must act, watch what changes and infer the rules from the frames, and it is scored on how few actions it needs compared with people. Operating an STM is the same kind of problem, with physics in it:
+### STM makes perception and control inseparable
 
-| | ARC-AGI-3 game | STM experiment (an STM-Bench scenario) |
+A scanning tunnelling microscope probes a conducting surface with an atomically sharp tip. The tunnelling current depends strongly on tip–sample separation and electronic structure; in constant-current imaging, the feedback records the tip height needed to maintain the current setpoint. Atomic-scale contrast therefore carries information about the sample, the tip, and the measurement conditions. The connection between tunnelling current and local electronic states is central to STM theory ([Tersoff and Hamann, 1985](https://doi.org/10.1103/PhysRevB.31.805)). Interpreting an apparent protrusion requires its bias, spatial context, and acquisition history.
+
+The operator must also infer the state of the instrument from the same data used to study the sample. Tip-apex changes can alter contrast across an entire frame; thermal drift and piezoelectric creep change the relation between commanded and actual position; feedback settings and scan direction affect how features appear. A voltage pulse may improve the tip and simultaneously change the local surface. The practical challenges developed in [MAST-public's STM introduction](https://github.com/HamsterPark/MAST-public#what-is-stm) make autonomous STM a problem of **partial observability, changing dynamics, and sequential experimental design**.
+
+Autonomous SPM research already demonstrates the value of learning within this loop. DeepSPM combines area selection, image-quality assessment, and reinforcement learning for tip conditioning ([Krull et al., 2020](https://doi.org/10.1038/s42005-020-0317-3)); reinforcement learning has also enabled atomic manipulation under uncertain and changing tip conditions ([Chen et al., 2022](https://doi.org/10.1038/s41467-022-35149-w)). VISTA-SPM builds on this experimental perspective by providing a shared interface through which general-purpose multimodal models can inspect evidence, use quantitative tools, and revise an experiment across different tasks.
+
+## What STM shares with ARC-AGI-3
+
+### Images encode spatial structure
+
+ARC's visual tasks make objects, repetition, symmetry, boundaries, and relative position central to reasoning. STM images are similarly rich in spatial relationships: periodic lattices, reconstruction domains, step edges, isolated adsorbates, vacancies, and repeated or distorted features. The informative pattern may span a whole terrace or occupy only a few pixels. Recognising it requires moving between the full field of view and local detail, preserving coordinates as well as appearance.
+
+This is why VISTA's image access and `inspect` operation are especially relevant. A model can examine a reconstruction globally, magnify a defect, and then return to the same location in an earlier scan. VISTA-SPM extends that workflow with scan geometry and physical units, so a visual relationship can become a testable statement about a period, displacement, height, or spectral response.
+
+### Experiments require learning through interaction
+
+[ARC-AGI-3](https://arxiv.org/abs/2603.24621) evaluates agents in unfamiliar interactive environments, where exploration reveals how actions affect the scene and how to make progress. STM has established physical principles and explicit scientific objectives, yet each experiment presents an incompletely known tip–sample system. The transferable reasoning pattern is to form a hypothesis, choose an informative action, inspect the resulting change, and update the working model.
+
+| Reasoning demand | ARC-AGI-3 | STM experiment |
 |---|---|---|
-| What the agent sees | a 64×64 frame of 16 colours after each action | scan frames (topography, current; forward and backward) and spectra after each instrument action |
-| What is hidden | the rules and the goal | the tip's state, the drift, the sample and the scenario's values, drawn per seed |
-| How it acts | one game action at a time | one instrument action at a time: scan, set the bias, move the tip, pulse, poke, take a spectrum, drag an atom |
-| What actions cost | the score rewards solving in few actions | instrument time and actions; a tip pulse or a dragged atom cannot be undone |
-| Where the evidence is | in how a frame changes after an action | in how frames differ: did the atom move, did the tip change, did the sample drift? |
-| What counts as success | the level is solved | a paper's claim is reproduced, with the measurements the judge asks for |
+| Parse a spatial scene | Objects, repeated patterns, boundaries, and their relations | Lattices, steps, adsorbates, defects, and scan artefacts |
+| Infer hidden state | Discover action effects and environment rules | Infer tip condition, drift, local sample state, and measurement stability |
+| Gather useful evidence | Explore with actions that distinguish possible rules | Change bias, rescan, compare directions, acquire a spectrum, or condition the tip |
+| Track change over time | Compare frames before and after a move | Separate atom motion, field-of-view drift, and a change in tip contrast |
+| Maintain a working model | Carry discoveries across a sequence of interactions | Retain stable landmarks, measurement conditions, tested hypotheses, and unfinished controls |
+| Use actions efficiently | Solve with few actions relative to human participants | Use instrument time well and account for interventions that can alter the tip or sample |
+| Verify progress | Reach the environment's completion condition | Support a scientific conclusion with the required acquisition evidence |
 
-In both, the decisive evidence is often a comparison across time: a frame before an action against a frame after it. VISTA's archive and magnifier give the model exactly that.
+Consider an atom that appears displaced after manipulation. A convincing diagnosis compares the atom with neighbouring landmarks, checks for whole-frame drift, and examines whether the tip changed the appearance of other features. The relevant evidence spans several images and scales. An archive, region inspection, frame registration, and calibrated coordinates turn this into an explicit reasoning procedure.
 
-Among the agents surveyed in the [research notes](docs/notes/2026-10-09-research-and-plan.zh-CN.md), quailbot ([arXiv 2609.27302](https://arxiv.org/abs/2609.27302)) is the only report of a frontier-LLM agent on a real STM. People diagnosed its failures by comparing frames from before and after an action.
+STM adds continuous signals, noise, physical units, and acquisition-dependent contrast to this shared structure. **VISTA-SPM turns VISTA's visual interaction pattern into an instrument-aware experimental workflow.**
 
-VISTA trains no vision model; its gains come from the harness. In its ablation on the 25 public ARC-AGI-3 games:
-- replacing the official text grid with images took RHAE from 13.33 to 47.32;
-- further steps, among them notes (+4.2), the lossless memory with `inspect` (+24.1) and `read_pixels` (+4.9), took it to 99.00.
+## A general framework with reusable modules
 
-### What has to change
+Our proposal is to organise autonomous microscopy around a persistent visual record:
 
-STM frames are not ARC frames:
-- they hold continuous heights and currents in physical units, with noise, drift and the tip's blur;
-- the feature that matters may be one atom a few pixels wide in a frame of 512;
-- spectra are curves, not pictures.
+```text
+Observe → archive the evidence → form or revise a hypothesis
+   ↑                                      ↓
+Check the outcome ← act ← inspect, compare, and measure
 
-So the port keeps VISTA's whole kit (images, notes, an archive of every frame, the `inspect` magnifier, an exact readout and graph paper). It adapts two of the tools and adds what a physicist reaches for:
+Experimental notes preserve the working model throughout the loop.
+```
 
-- the exact readout, `read_values`, returns pm, pA or V instead of palette indices;
-- the graph paper is metric, in squares of 1, 2 or 5 × 10ⁿ nm instead of ARC's cells;
-- five measurement tools measure and never interpret: `line_profile`, `fft_peaks`, `detect_blobs`, `diff` and `stats`;
-- spectra are plotted on request and can be read as numbers;
-- the instrument clock runs only while an action executes, so thinking costs no instrument time.
+The framework brings together four capabilities:
 
-MAST's own agents saw STM frames through a fine-tuned vision model, VIGIL, which turned each image into text. This repository tests VISTA's route against that one on the STM-Bench simulator, and keeps VIGIL's text as a control arm.
+1. **Persistent, revisitable evidence.** Archive scan channels, forward/backward directions, partial scans, spectra, and derived measurements under stable frame IDs. The model can return to the evidence whenever a new question arises.
+2. **Visual reasoning grounded in metrology.** Couple region inspection with pixel-to-scan coordinate conversion, metric grids, numerical readout, line profiles, Fourier analysis, feature localisation, and registered differences. Tools return measurements; the model relates them to physical hypotheses.
+3. **Continuity across long experiments.** `GUIDE.md` holds the agent's revisable understanding; `WORKING.md` preserves the current plan and state across context replacement. Action history connects observations to the interventions that produced them.
+4. **Controlled evaluation of the interface.** The same scenarios can be run with images, notes, memory, numerical readout, or additional measurement tools. This makes the observation and tool interface an explicit experimental variable.
+
+The contribution has an independent scope: every microscope workflow needs to connect its images and measurements to an evolving account of the experiment. These modules address that recurring need at the boundary between scientific data and agent reasoning. MAST provides one execution environment; dsh-spm demonstrates how the same visual-memory and measurement design can be carried into another language and agent host.
+
+| Module | What it provides | Reuse entry point |
+|---|---|---|
+| Frames and coordinates | Read `.sxm` / `.dat` data, orient channels, render views, and map display positions to scan coordinates | [frames.py](vista_spm/frames.py) |
+| Visual archive | Preserve acquired arrays and metadata, retrieve any frame, and re-render selected regions | [archive.py](vista_spm/archive.py) |
+| Inspection and readout | `inspect` for visual detail; `read_values` for values in pm, pA, V, or Hz | [viewtools.py](vista_spm/viewtools.py) |
+| Quantitative tools | `line_profile`, `fft_peaks`, `detect_blobs`, `diff`, and `stats` | [measure.py](vista_spm/measure.py) |
+| Notes and tool protocol | Persistent experimental notes and typed text/image replies for an agent host | [notes.py](vista_spm/notes.py), [protocol.py](vista_spm/protocol.py) |
+| Evaluation | STM-BabyVision static perception tasks and configurable closed-loop ablations | [staticbench](docs/staticbench.md), [design specification](docs/DESIGN.md) |
+
+For example, the visual modules can inspect an existing scan independently of the MAST runtime:
+
+```python
+from vista_spm.archive import Archive
+from vista_spm.viewtools import inspect
+from vista_spm.measure import stats
+
+archive = Archive("tmp/visual-memory")
+frame = archive.add_scan(turn=0, sxm_path="scan.sxm")
+view = inspect(archive, {
+    "question": "Examine the terrace and its defects.",
+    "views": [{"frame": frame.fid, "label": "Terrace overview"}],
+})
+measurement = stats(archive, {"frame": frame.fid})
+# view.images contains labelled PNGs; measurement.text contains numerical JSON.
+```
+
+The reusable visual modules use STM-Bench's file reader and the scientific Python dependencies. Closed-loop execution in this repository uses MAST's runtime and skills; the supplied runner hosts the model through Claude Code. The maintained MAST integration and the TypeScript implementation in [dsh-spm](https://github.com/HamsterPark/dsh-spm) apply the design in their respective systems. This repository preserves the Python reference implementation, tests, static benchmark, and initial simulator ablations. [Dependency details](#standalone-use-and-runtime-integration).
 
 ## First results (2026-10-10)
 
-Setup:
+**The initial simulator study shows the value of retaining and revisiting visual evidence.** The `mem` arm fully reproduced 6 of 9 episodes, compared with 2 of 9 for the latest-image-only arm. On the 37-item static perception set, Claude answered 31 correctly with tools and 23 with images alone. Together, these experiments examine the framework at two levels: extended experimental interaction and individual visual measurements.
+
+Closed-loop setup:
 
 - **Model:** claude-opus-5-5, effort high.
 - **Actions:** the V0 primitive actions.
@@ -87,20 +131,17 @@ Each comparison below pairs the two arms' episodes on the same scenario and seed
 | mem vs vigil-text | 6 | 3 | 0 |
 | full vs mem | 0 | 8 | 1 |
 
-Three seeds per cell do not separate full from mem. Each step also changes more than one thing:
+The paired results favour `mem` over `img` and `vigil-text` in this matrix. Here, `mem` adds notes, the archive, and `inspect` together; `full` adds numerical readout and five measurement tools. With three seeds per scenario, the matrix characterises these bundles and leaves the individual contributions for more targeted ablations. The two richer arms also used different strategies: `mem` magnified frames 7.8 times per episode, while `full` measured 15 times and magnified twice.
 
-- mem adds three things over img: notes, the frame archive and `inspect`.
-- full adds two kinds of tools over mem: the exact readout and five measurement tools.
+**Scoring context.** Claim fractions are reported without chance correction. The 2026-10-12 audit measured the following fixed-constant baselines, conditional on meeting acquisition-evidence requirements:
 
-In the episodes the two arms used different tools for the same job. mem magnified frames 7.8 times per episode; full measured 15 times and magnified twice.
+| Scenario | Share of claims passed by fixed constants | Full reproduction with the same constants |
+|---|---|---|
+| P1 | about 0.26 | about 2–3% |
+| P4 | 0 | 0 |
+| P5 | about 0.41 | about 13% |
 
-**The claim fractions are not chance-corrected.** An audit of STM-Bench on 2026-10-12 found that reporting fixed constants, with the evidence requirements met, passes these shares of claims:
-
-- about 0.26 in P1;
-- about 0.41 in P5;
-- none in P4.
-
-The same constants fully reproduce about 2–3% of P1 episodes, 13% of P5 episodes and no P4 episodes. Read the fractions against these floors and together with the full-reproduction counts.
+These baselines provide the reference for reading claim fractions alongside paired outcomes and full-reproduction counts.
 
 **Static perception benchmark (STM-BabyVision), 37 hard items:**
 
@@ -112,10 +153,7 @@ The same constants fully reproduce about 2–3% of P1 episodes, 13% of P5 episod
 
 The gap between the two Claude arms comes almost entirely from herringbone periods, which need measurement.
 
-**What these numbers are.** All of them are a record:
-- **What produced them.** The runs used MAST and the STM-Bench of 2026-10-09/10, from before its public rules (v1) and its later simulator changes. The frozen code's file hashes are in [results/m1/code_manifest.json](results/m1/code_manifest.json). These runs cannot be repeated from public components alone.
-- **What the tag reproduces.** The tag `m1-surface` with `--grid off` reproduces the system prompt, tool surface and tool behaviour that the episodes saw. The reference fixes of 2026-10-13 changed some tools since ([notes](docs/notes/2026-10-13-reference-fixes.zh-CN.md)).
-- **Where the details are.** Details and caveats are in [docs/notes/2026-10-10-first-results.zh-CN.md](docs/notes/2026-10-10-first-results.zh-CN.md) (Chinese); the tables are in [results/](results/).
+**Experimental scope and provenance.** All reported results are simulator experiments. The archived runs used MAST and the 2026-10-09/10 STM-Bench revision, before public rules v1 and subsequent simulator changes. Exact historical replay requires the original dependency snapshot, including private components; the frozen file hashes are in [results/m1/code_manifest.json](results/m1/code_manifest.json). The `m1-surface` tag with `--grid off` preserves the model-facing prompt, tool schemas, and tool behaviour. Current tools incorporate the [2026-10-13 reference fixes](docs/notes/2026-10-13-reference-fixes.zh-CN.md). Experiment details are in the [first-results report](docs/notes/2026-10-10-first-results.zh-CN.md), and aggregated tables are in [results/](results/).
 
 ## How it works
 
@@ -128,7 +166,7 @@ python -m vista_spm run
        claude ── stdio MCP ──► mcp_bridge.py (stdlib only) ──► RpcServer ──► VistaHost
 ```
 
-- **Observation:** raw frames with whole-pixel nearest-neighbour scaling. Labels and numbers travel in text next to the image.
+- **Observation:** views rendered from acquired arrays, with nearest-neighbour enlargement and block-mean reduction for oversized frames. Labels and numbers travel in text next to the image; archived arrays remain available for detailed inspection and numerical measurement.
 - **Graph paper:** the only thing drawn on a scan image, as VISTA draws cell lines on its ARC frames.
   - It is a faint amber metric grid of 1, 2 or 5 × 10ⁿ nm squares, counted from the frame's top-left corner.
   - A view has at most 16 cells across, so zoomed views get finer squares.
@@ -164,13 +202,13 @@ Each arm has these tools:
 | One action, one observation | `act` is refused until the previous action's result has reached the model. The simulator clock is paused except while an action executes. | [host.py](vista_spm/host.py) |
 | A lossless visual memory | Every frame, channel, direction and partial snapshot is archived with a stable id. Any region can be cropped and enlarged again or read as exact values. Pixel and scan coordinates convert exactly, sub-pixel included. | [archive.py](vista_spm/archive.py), [viewtools.py](vista_spm/viewtools.py), [frames.py](vista_spm/frames.py) |
 | Measurement without interpretation | Line profiles with step candidates, FFT peaks, elliptical blob fits, sub-pixel frame registration and statistics. Replies carry numbers, never verdicts such as "double tip". | [measure.py](vista_spm/measure.py) |
-| Treat what the model sees as an experiment parameter | Every arm's system prompt and tool schemas are pinned by hash, with and without graph paper and qPlus. The first matrix stays reproducible from a tag. | [test_surface.py](tests/test_surface.py) |
+| Treat what the model sees as an experiment parameter | Every arm's system prompt and tool schemas are pinned by hash, with and without graph paper and qPlus. A tag preserves the first matrix's model-facing interface and tool behaviour. | [test_surface.py](tests/test_surface.py) |
 | Keep the truth out of observations | Tool replies, images and action descriptions must not carry hidden scenario values, tolerances or judge-only data. The ledger keeps the truth for the judge and for replays. | [AGENTS.md](AGENTS.md) (invariant 1) |
 | Long episodes | VISTA's compaction protocol: before Claude Code compacts, the model writes WORKING.md, and a new segment resumes from the notes and the action history. | [compact_hook.py](vista_spm/compact_hook.py), [claude_runner.py](vista_spm/claude_runner.py) |
 | Billing safety | The runner strips API credentials from the Claude Code child process. It aborts a session whose init reports an API key as the credential source. | [claude_runner.py](vista_spm/claude_runner.py) |
 | Ablations that can be audited | Frozen code snapshots with hash manifests, and a seed-major matrix runner that pauses at usage limits. Failed episodes are found and rerun, and finished ones can be re-judged offline. | [scripts/](scripts/) |
 
-## What runs without MAST
+## Standalone use and runtime integration
 
 | Runs with STM-Bench only (Python 3.13, STM-Bench 84fb385 or later, packages from PyPI) | Needs MAST or MAST-public |
 |---|---|
@@ -206,14 +244,12 @@ On Windows also set `PYTHONUTF8=1`.
 
 ## Billing
 
-Episodes run on the Claude subscription only. STM-Bench's RuntimeHost exports MAST's provider keys into the process environment, and early episodes were billed to an API key because of it.
-
-`RunnerConfig.auth = "subscription"` is the default. It does two things:
+The runner uses Claude subscription authentication by default (`RunnerConfig.auth = "subscription"`). To preserve that choice when MAST exports provider credentials into the environment, it applies two checks:
 
 - it removes `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from the Claude Code child process;
 - it aborts any session whose init message reports an API key source.
 
-Keep it.
+Use this default for subscription-based runs.
 
 ## Usage
 
@@ -265,18 +301,21 @@ On STM-Bench 84fb385 without MAST: 282 passed, 4 skipped, 1 deselected. With MAS
 | `scripts/` | matrix tooling: snapshot, runner, aggregation, rerun finder, offline re-judge |
 | `results/` | aggregated results of past runs (records, not regenerated) |
 | `docs/DESIGN.md`, `docs/staticbench.md` | design specification, static benchmark |
-| `docs/notes/` | research plan, literature review, first results and the reference fixes (Chinese). The public copies leave out MAST internals, unpublished model evaluations and local paths. |
+| `docs/notes/` | research plan, literature review, first results, and reference implementation fixes (Chinese) |
 
 ## Related repositories
 
-| Repository | Visibility | Relation |
-|---|---|---|
-| [STM-Bench](https://github.com/HamsterPark/STM-Bench) | public | the simulator (`stmsim`), the `.sxm`/`.dat` reader, the scenarios and the judge (`stmbench`) |
-| MAST | private | the instrument runtime and skills behind `act`, the detectors and VIGIL; the maintained home of this harness |
-| [MAST-public](https://github.com/HamsterPark/MAST-public) | public | MAST 6.5.0's limited public source edition; it can stand in for MAST here, without VIGIL ([details](#what-runs-without-mast)) |
-| [dsh-spm](https://github.com/HamsterPark/dsh-spm) | public | a TypeScript port of the visual memory and the measurement tools |
+VISTA-SPM sits at the visual reasoning layer of our SPM research software. The surrounding projects connect instrument operation, experimental evaluation, and scientific interpretation:
 
-dsh-spm's parity goldens are generated from `vista_spm/frames.py`, `archive.py`, `viewtools.py` and `measure.py`.
+| Repository | Role in the research workflow | Connection to VISTA-SPM |
+|---|---|---|
+| [MAST-public](https://github.com/HamsterPark/MAST-public) | STM automation: instrument runtime, skills, state feedback, and experimental workflows | The limited public edition of MAST can execute this repository's closed-loop actions. Its README develops the scientific motivation for autonomous STM; the maintained visual harness lives in MAST. |
+| [dsh-spm](https://github.com/HamsterPark/dsh-spm) | SPM tools and runtime integration for DeepSeek Harness | Carries the visual memory, calibrated readout, and measurement tools into TypeScript, with reference outputs exported from this Python implementation. |
+| [STM-Bench](https://github.com/HamsterPark/STM-Bench) | Simulated microscope, scientific scenarios, acquisition records, and evidence-based judging | Supplies the instrument and evaluation environment for VISTA-SPM ablations, together with the `.sxm` / `.dat` reader. |
+| [AFS3D](https://github.com/HamsterPark/AFS3D) | Three-dimensional atomic force spectroscopy: drift correction, force reconstruction, and experiment–theory comparison | A complementary scientific workflow showing why spatial registration, quantitative signals, and traceable comparisons matter in SPM. |
+| [dft-spm-toolkit](https://github.com/HamsterPark/dft-spm-toolkit) | Simulated STM/nc-AFM images from electronic-structure calculations and probe-particle models | Complementary tools for relating image contrast to atomic structure, probe response, and the imaging mechanism. |
+
+The MAST runtime supplies the actions; VISTA-SPM organises the visual evidence; STM-Bench evaluates the resulting experimental behaviour. In dsh-spm, [runtime integration](https://github.com/HamsterPark/dsh-spm/blob/master/packages/bundle/dsh-spm/src/visual-harness.ts) connects the TypeScript archive, observation delivery, and action gate. Its parity fixtures are generated from this repository's `frames.py`, `archive.py`, `viewtools.py`, and `measure.py`. This provides a concrete path from a shared scientific design to implementations in different agent systems.
 
 ## License
 
