@@ -33,6 +33,7 @@ import functools
 import io
 import math
 import warnings
+from statistics import NormalDist
 from typing import Any, Callable
 
 import numpy as np
@@ -59,6 +60,23 @@ def _mad_sigma(v: np.ndarray) -> float:
     if v.size == 0:
         return 0.0
     return float(1.4826 * np.median(np.abs(v - np.median(v))))
+
+
+#: Width of the 5th..30th percentile span of a normal distribution, in sigmas.
+_LOWER_SPAN = NormalDist().inv_cdf(0.30) - NormalDist().inv_cdf(0.05)
+
+
+def _lower_sigma(v: np.ndarray) -> float:
+    """Noise sigma from the lower part of a distribution: (30th - 5th percentile) / 1.1205.
+    Features that only add to the values (bright blobs; dark ones after the sign flip) do not reach
+    that part while they cover less than about 70 % of the pixels, whereas the median absolute
+    deviation measures them once they cover a sizeable fraction, as a dense lattice does."""
+    v = np.asarray(v, dtype=float)
+    v = v[np.isfinite(v)]
+    if v.size == 0:
+        return 0.0
+    p5, p30 = np.percentile(v, [5.0, 30.0])
+    return float((p30 - p5) / _LOWER_SPAN)
 
 
 def _pixel_nm(e: FrameEntry) -> tuple[float, float]:
@@ -768,12 +786,12 @@ def find_blobs(z: np.ndarray, *, dx_nm: float, dy_nm: float, polarity: str = "br
     bg = F.median_background(zf, background_nm / px)
     r = zf - bg
     r_nan = np.where(finite, r, np.nan)
-    noise = _mad_sigma(r_nan)
+    noise = _lower_sigma(r_nan)
     sm = float(np.clip(0.15 / px, 0.7, 2.0))
     rs = gaussian_filter(np.where(finite, r, 0.0), sm)
     weight = gaussian_filter(finite.astype(float), sm)
     rs = np.where(weight > 0.5, rs / np.maximum(weight, 1e-9), np.nan)
-    noise_s = _mad_sigma(rs)
+    noise_s = _lower_sigma(rs)
     if noise_s <= 0:
         noise_s = max(noise, 1e-30)
     thr = threshold_sigma * noise_s
@@ -880,8 +898,9 @@ def make_detect_blobs_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
         "Find compact bright (or dark) features in one archived scan frame, or in a region of it (display "
         "pixels of the frame's full image), without changing the instrument. The frame is plane-flattened, a "
         "median background of background_nm is subtracted, the residual is lightly smoothed, and local maxima "
-        "above 6 robust noise sigmas are kept; maxima not separated by a saddle are merged; each feature is "
-        "fitted with an elliptical Gaussian. Per blob: id, centroid in display pixels of the full frame "
+        "above 6 noise sigmas are kept (the noise is measured on the lower part of the residual, which features "
+        "do not reach, so a dense lattice does not raise it); maxima not separated by a saddle are merged; each "
+        "feature is fitted with an elliptical Gaussian. Per blob: id, centroid in display pixels of the full frame "
         "(x_px, y_px) and in scan-frame nm (x_nm, y_nm), height relative to the local background (height_pm "
         "for Z, height_pa for current; negative for dark blobs), FWHM along the frame's x and y and along its "
         "major/minor axes (nm), elongation (major/minor), the major axis angle (axis_angle_deg, scan frame, "

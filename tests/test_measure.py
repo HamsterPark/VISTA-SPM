@@ -173,6 +173,21 @@ def test_detect_blobs_elongated_and_no_false_positives(tmp_path):
     assert body["n_blobs"] == 0
 
 
+def test_detect_blobs_on_a_dense_lattice():
+    """A 13 x 13 lattice of 30 pm atoms (period 10 px, sigma 1.3 px) with 1.5 pm noise. m1 took the
+    noise from the median absolute deviation of the whole residual, which the lattice itself
+    dominates; its 6-sigma threshold kept 8 of the 169 atoms (period 8 px: none)."""
+    offset, period = 4.3, 10.0
+    centres = [(offset + period * i + 0.15 * ((j * 7 + i * 3) % 5), offset + period * j + 0.1 * ((i * 5 + j) % 7))
+               for j in range(13) for i in range(13)]
+    z = _blobs(128, 128, centres, 1.3, 1.3, 30e-12, 1.5e-12, 68)
+    res = M.find_blobs(z - np.mean(z), dx_nm=0.1, dy_nm=0.1, max_n=200)
+    assert res["n_candidates"] == len(centres) == len(res["blobs"])
+    for c, r in centres:
+        assert min(math.hypot(b["col"] - c, b["row"] - r) for b in res["blobs"]) < 0.3
+    assert res["noise"] == pytest.approx(1.5e-12, rel=0.25)
+
+
 def test_blob_fit_orientation_does_not_stick_at_a_bound():
     """Single blobs with aspect 2.75 at random orientations. m1 started every fit at a circle, where
     the model does not depend on theta, and bounded theta to [-pi, pi]: for seed 116 the fit ran to

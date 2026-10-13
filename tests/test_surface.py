@@ -33,17 +33,17 @@ M1_SURFACE = {          # arm: (without qPlus, with qPlus), grid off
 }
 
 SURFACE = {             # arm: (grid off, grid off + qPlus, default, default + qPlus)
-    "full": ("98140a8d2b79d853", "6179652feeaabb65", "366220f8e45c2ac9", "38e178f8d953b678"),
+    "full": ("c7ebd03c3dfa1260", "ae33a431e81e94ae", "02f6b845586a8c42", "5b20475ca21a9e0a"),
     "read": ("a878c086bc6e5d11", "f29b0fde64498cbc", "e66a85ccce351825", "8a21a85bbf2cc20c"),
     "mem": ("8c0597f70f0a3e71", "ad11f19af99a3ab1", "be263ae72c4e1071", "3344e534d3e5ad87"),
     "notes": ("ec7380e9da0d3fad", "361b0dc13083ce70", "c3fbebb6d195eccd", "d00e7393a2e7bfa4"),
     "img": ("67fd045e1bde22fe", "29c20de81320aa48", "541abb11d243be7f", "ea416f110bab4ff9"),
     "text": (None, None, "fdb6ff1467869c44", "d086df22455209e7"),
     "vigil-text": (None, None, "dbc1e6c31136c497", "1684d369c65154ef"),
-    "advisor": ("8ae2856c03da4706", "2b8fdc50c3ddf88d", "5e3baf13c01d4b79", "9e6bc315b3ca3c14"),
+    "advisor": ("df392b94b237cb23", "23cc86f93c2ee545", "03f392ace2bd90b1", "6d8f987278189cdc"),
 }
 
-M1_UNCHANGED = ("full", "mem", "notes", "img", "text", "vigil-text", "advisor")
+M1_UNCHANGED = ("mem", "notes", "img", "text", "vigil-text")
 
 
 def _surface(arm_name: str, qplus: bool, grid: bool | None) -> str:
