@@ -84,9 +84,16 @@ def check_keys(obj: dict, allowed: set[str], required: set[str], where: str) -> 
         raise ArgError(f"{where}: missing required field(s) {missing}")
 
 
+def _given(obj: dict, key: str, default: Any) -> Any:
+    """The value of an optional argument: ``default`` when it is absent or explicitly null (a model
+    may write null for "not given"; it should get the default, not an unrelated refusal)."""
+    v = obj.get(key)
+    return default if v is None else v
+
+
 def str_arg(obj: dict, key: str, where: str, *, default: str | None = None, max_len: int = 256,
             min_len: int = 1, choices: tuple[str, ...] | None = None) -> str | None:
-    v = obj.get(key, default)
+    v = _given(obj, key, default)
     if v is None:
         return None
     if not isinstance(v, str):
@@ -100,7 +107,7 @@ def str_arg(obj: dict, key: str, where: str, *, default: str | None = None, max_
 
 def num_arg(obj: dict, key: str, where: str, *, default: float | None = None, lo: float | None = None,
             hi: float | None = None, integer: bool = False, lo_exclusive: bool = False) -> Any:
-    v = obj.get(key, default)
+    v = _given(obj, key, default)
     if v is None:
         return None
     if isinstance(v, bool) or not isinstance(v, (int, float)):
@@ -119,7 +126,7 @@ def num_arg(obj: dict, key: str, where: str, *, default: float | None = None, lo
 
 
 def bool_arg(obj: dict, key: str, where: str, *, default: bool) -> bool:
-    v = obj.get(key, default)
+    v = _given(obj, key, default)
     if not isinstance(v, bool):
         raise ArgError(f"{where}.{key} must be true or false")
     return v
@@ -203,7 +210,7 @@ def region_arg(e: FrameEntry, obj: dict, where: str) -> tuple[int, int, int, int
 def flatten_args(obj: dict, where: str, *, default: str = "plane") -> tuple[str, float]:
     mode = str_arg(obj, "flatten", where, default=default, choices=F.FLATTEN_MODES)
     hp = num_arg(obj, "highpass_nm", where, default=F.HIGHPASS_NM_DEFAULT, lo=0, hi=10000, lo_exclusive=True)
-    if "highpass_nm" in obj and mode != "highpass":
+    if obj.get("highpass_nm") is not None and mode != "highpass":
         raise ArgError(f"{where}.highpass_nm only applies with flatten='highpass'")
     return mode, float(hp)
 
@@ -399,7 +406,7 @@ def inspect(archive: Archive, args: dict) -> ToolReply:
 
 
 def _only(v: dict, allowed: set[str], where: str, what: str) -> None:
-    extra = sorted(set(v) - allowed)
+    extra = sorted(k for k in set(v) - allowed if v[k] is not None)       # null = not given
     if extra:
         raise ArgError(f"{where}: {extra} do not apply to {what} frame; allowed: {sorted(allowed)}")
 

@@ -249,6 +249,20 @@ def test_read_values_caps(arch):
         {"label": "a", "frame": "t0000.p0", "rows": 64, "columns": 64}]}))
 
 
+def test_null_optional_arguments_are_read_as_absent(arch):
+    """An explicit null takes the default. m1 answered direction: null with an unrelated refusal and
+    failed internally on clip_pct: null (TypeError)."""
+    base = {"label": "a", "frame": "t0000.p0"}
+    plain = _ok(V.inspect(arch, {"question": "q", "views": [base]}))
+    nulls = _ok(V.inspect(arch, {"question": "q", "views": [dict(
+        base, channel=None, direction=None, region=None, flatten=None, highpass_nm=None, clip_pct=None,
+        x_col=None, y_col=None, x_range=None)]}))
+    assert nulls == plain
+    view = _ok(V.read_values(arch, {"question": "q", "views": [dict(
+        base, rows=2, columns=2, channel=None, direction=None, region=None, n=None)]}))["views"][0]
+    assert view["direction"] == "forward" and view["channel"] == "Z" and view["region_px"] == [0, 0, 768, 768]
+
+
 def _strict_json(text: str):
     """Parse as standard JSON: NaN / Infinity are refused (``json.loads`` accepts them by default)."""
     def refuse(constant):
@@ -293,6 +307,8 @@ def test_read_values_spectrum(tmp_path):
     assert v["column_decimals"] == [3, 1]
     assert body["sample_count"] == 6
     body = _ok(V.read_values(a, {"question": "q", "views": [{"label": "all", "frame": d.fid}]}))
+    assert _ok(V.read_values(a, {"question": "q", "views": [{"label": "all", "frame": d.fid, "n": None,
+                                                             "x_range": None, "y_cols": None}]})) == body
     assert body["views"][0]["n"] == 21 and len(body["views"][0]["values"]) == 3
     assert "contains no samples" in _err(V.read_values(a, {"question": "q", "views": [
         {"label": "s", "frame": d.fid, "x_range": [900, 1000]}]}))

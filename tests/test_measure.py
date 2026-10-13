@@ -512,6 +512,33 @@ def test_measure_errors(tmp_path):
         assert r.is_error and "error" in json.loads(r.text)
 
 
+def test_null_optional_arguments_are_read_as_absent(tmp_path):
+    """An explicit null takes the default. m1 refused diff's align / flatten / direction: null with an
+    unrelated message and failed internally on highpass_nm: null (TypeError)."""
+    g = _geom(nx=128, ny=128, w=12.8, h=12.8)
+    z = _sample(_texture(4), *_scan_xy(g), 0.1)
+    arch = Archive(tmp_path)
+    fa, fb = _add(arch, 0, z, g), _add(arch, 1, np.roll(z, 3, axis=1), g)
+
+    def same(tool, args, nulls):
+        a, b = _ok(tool(arch, args)), _ok(tool(arch, {**args, **nulls}))
+        for body in (a, b):                       # each call archives its own derived image
+            for k in ("plot", "image", "difference"):
+                if k in body:
+                    body[k].pop("frame")
+        assert a == b
+
+    same(M.diff, {"frame_a": fa, "frame_b": fb}, {"region": None, "channel": None, "direction": None,
+                                                   "align": None, "flatten": None, "highpass_nm": None})
+    same(M.line_profile, {"frame": fa, "p1": {"x": 10, "y": 10}, "p2": {"x": 300, "y": 200}},
+         {"p1": {"x": 10, "y": 10, "x_nm": None}, "p2": {"x": 300, "y": 200, "y_nm": None}, "width_px": None,
+          "flatten": None, "highpass_nm": None, "channel": None, "direction": None})
+    same(M.detect_blobs, {"frame": fa}, {"region": None, "polarity": None, "min_height": None,
+                                          "min_sep_nm": None, "background_nm": None, "max_n": None})
+    same(M.fft_peaks, {"frame": fa}, {"region": None, "n_peaks": None, "flatten": None, "highpass_nm": None})
+    same(M.stats, {"frame": fa}, {"region": None, "channel": None, "direction": None})
+
+
 # ── one vocabulary for everything the model reads ──────────────────────────
 _FORBIDDEN_KEYS = {"fid", "type", "visual_kind", "measurement", "unit", "setpoint_a", "centre_nm"}
 

@@ -326,8 +326,8 @@ def _point_to_native(e: FrameEntry, p: Any, where: str) -> tuple[float, float]:
     if not isinstance(p, dict):
         raise ArgError(f"{where} must be an object {{x, y}} (display px) or {{x_nm, y_nm}} (scan nm)")
     check_keys(p, {"x", "y", "x_nm", "y_nm"}, set(), where)
-    has_px = "x" in p or "y" in p
-    has_nm = "x_nm" in p or "y_nm" in p
+    has_px = p.get("x") is not None or p.get("y") is not None          # null = not given
+    has_nm = p.get("x_nm") is not None or p.get("y_nm") is not None
     if has_px == has_nm:
         raise ArgError(f"{where}: give either x and y (display px) or x_nm and y_nm (scan nm)")
     if has_px:
