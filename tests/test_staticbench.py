@@ -560,7 +560,7 @@ def test_end_to_end_tiny_dataset(tmp_path):
     # deterministic: a second run in another directory gives the same items (ids, truth, provenance)
     # and bit-identical frame data (the header differs only in the file path it records)
     assert json.dumps(outs["a"], sort_keys=True) == json.dumps(outs["b"], sort_keys=True)
-    from mast.io.nanonis_files import read_sxm
+    from stmsim.io.sxm_reader import read_sxm
 
     for f in {f for it in items for f in it["frames"]}:
         sa, sb = read_sxm(str(tmp_path / "a" / f)), read_sxm(str(tmp_path / "b" / f))

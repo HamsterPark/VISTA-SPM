@@ -8,7 +8,7 @@ VISTA-SPM is an image-first visual harness for a multimodal model operating the 
   - The harness imports a few private helpers from it: `stmbench.harness.episode`, `ic_driver` and `cli`.
   - It needs `RuntimeHost(controller_timeout_s=...)`, from HamsterPark/STM-Bench#1.
   - Never edit STM-Bench from here. Propose the change there.
-- **MAST** (private), reached through `MASTv2` on `PYTHONPATH` and `MAST_ROOT`. It provides the skills behind `act`, the `.sxm`/`.dat` readers and VIGIL. Tests that import it carry `requires_mast`.
+- **MAST** (private), reached through `MASTv2` on `PYTHONPATH` and `MAST_ROOT`. It provides the skills behind `act`, VIGIL and the advisor's detectors; `.sxm`/`.dat` files are read with STM-Bench's `stmsim.io.sxm_reader`. Tests that import it carry `requires_mast`.
 - **dsh-spm** (public) ports the visual memory to TypeScript. Its golden file `spec/golden/visual_memory.json` is exported from `vista_spm/frames.py`, `archive.py` and `viewtools.py`. After a change to their behaviour or model-facing vocabulary, re-export the golden there.
 
 ## Invariants

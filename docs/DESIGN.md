@@ -83,8 +83,8 @@ and skips when it is unset. Real instrument data never enter the repository. Any
 forbids drive-rooted path literals and second readers of `STM_BENCH_*` / `MAST_ROOT` in
 package source and scripts, and the vendor name outside MAST's identifiers.
 
-Readers to reuse: `mast.io.nanonis_files.read_sxm`, `read_sxm_header`, `sxm_oriented_frames`,
-`read_dat`; `stmbench.human.render.frame_geometry`, `pixel_to_scan_nm`, `flatten`,
+Readers to reuse: STM-Bench's `stmsim.io.sxm_reader.read_sxm`, `read_sxm_header`, `oriented_frames`,
+`read_dat` (no MAST needed); `stmbench.human.render.frame_geometry`, `pixel_to_scan_nm`, `flatten`,
 `frame_array`, `render_dat`. The display-coordinate convention is
 `protocol.DISPLAY_CONVENTION`; the judge (`stmbench/trackB/claims.py`) compares reported
 positions in scan-frame nm with tolerances down to 0.16 nm (P4), so the transform must be
