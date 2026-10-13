@@ -7,6 +7,8 @@ name = "vista-spm"
 version = "0.1.0.dev0"
 description = "VISTA-SPM: an image-first visual harness for multimodal models operating a scanning probe microscope, evaluated on the STM-Bench simulator through MAST"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.13"
 authors = [{ name = "HamsterPark" }]
 keywords = ["STM", "scanning probe microscopy", "visual harness", "multimodal agents", "LLM benchmark"]
@@ -28,6 +30,9 @@ dependencies = [
     "pyyaml>=6",
     "scikit-image>=0.24",
 ]
+
+[project.urls]
+Repository = "https://github.com/HamsterPark/VISTA-SPM"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
