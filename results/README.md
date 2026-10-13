@@ -31,4 +31,4 @@ Points to keep in mind:
 | `staticbench/pilot1.md`, `.csv` | Claude pilot: 12 items, one per type, with tools and with images only. |
 | `staticbench/hard1.md`, `.csv` | Claude on the 37-item hard set, with tools (31) and with images only (23); the classical baseline scored 30. |
 
-The Claude runs saw the frames without graph paper (added 2026-10-12); `qa --grid off` reproduces them.
+The Claude runs saw the frames without graph paper (added 2026-10-12) and the tools as they were before the reference fixes of 2026-10-13; `qa --grid off` at the tag `m1-surface` reproduces them.

@@ -136,8 +136,9 @@ darkens to 3/4, which vanishes on black and could pass for a trench on an STM im
 colour limits come from the data, never from the grid. The spacing is in the label
 (`grid_nm`) and in each `inspect` view (`grid_nm`); `act` and `inspect` describe the grid
 when it is drawn. Spectra, plots and derived images carry no grid. `--grid off` renders
-as before (the first matrix, m1, and the static-benchmark runs of 2026-10-09/10 had no grid)
-and files the runs under `<arm>-nogrid`.
+without it (the first matrix, m1, and the static-benchmark runs of 2026-10-09/10 had no grid)
+and files the runs under `<arm>-nogrid`; m1 itself, surface and tool behaviour, is reproduced
+from the tag `m1-surface` (the reference fixes of 2026-10-13 changed both, §6).
 
 Every image carries a label text block before it, e.g.
 `<visual kind="current" frame="t0007.s0" channel="Z" direction="forward" flatten="plane" scale="2" size="768x768" region="0,0,768,768" field_nm="50x50" grid_nm="5" z_range_pm="-23.1..41.7"/>`.
@@ -229,7 +230,10 @@ subsets. All tools return `protocol.ToolReply`; implementations never raise.
   sample positions (`sample_x_px`, `sample_y_px`, `first_sample_nm`, `last_sample_nm`), NaN as
   null. For a spectrum the request uses `x_col`, `y_cols`, `x_range`, `n` (because `columns`
   is the grid count of scan views); the reply gives `column_names`, `column_units`,
-  `column_decimals` and `values` per column.
+  `column_decimals` and `values` per column. An `inspect` spectrum view plots `y_col`, or by
+  default the first four columns other than x, and lists them as `y_cols` / `y_units`.
+* Optional arguments given as `null` take their default, as if left out. Non-finite numbers
+  are written as `null` in every reply (NaN / Infinity are not JSON).
 
 ### 6.3 Measurement (WP-A, `measure.py`) — measure, never interpret
 
@@ -242,15 +246,21 @@ subsets. All tools return `protocol.ToolReply`; implementations never raise.
   log-magnitude image with peaks numbered (marks drawn only on this derived image).
 * `detect_blobs(frame, region?, channel?, direction?, polarity="bright", min_height?,
   min_sep_nm?, max_n=50, background_nm?)`: local background subtraction (dark blobs report
-  negative heights), local maxima above threshold;
+  negative heights), local maxima above 6 noise sigmas (noise from the 5th..30th percentile
+  span of the residual, which features do not reach, so a dense lattice does not raise it);
+  each blob fitted with an elliptical Gaussian started from its intensity moments (theta
+  unbounded); at most 50 blobs (`max_n` <= 50);
   per blob: id, centroid (display px and scan nm), height, FWHM x/y (nm), elongation and
-  axis angle; plus a derived image with numbered marks (Set-of-Mark).
+  axis angle (null below an elongation of 1.1, where noise decides the axis); plus a derived
+  image with numbered marks (Set-of-Mark).
 * `diff(frame_a, frame_b, region?, channel?, direction?, align=true, flatten?, highpass_nm?)`:
   both frames flattened (default `highpass` with a 3 nm median background, so steps and creep
   bows do not dominate the correlation), sub-pixel cross-correlation registration within a
   ±40 % search window (shift in nm; confidence = the main NCC peak divided by the best NCC
   farther away than twice the image's autocorrelation length, so a lattice ridge is not read
-  as infinite confidence), the aligned difference
+  as infinite confidence; the sub-pixel refinement keeps one overlap for every trial shift, the
+  start's eroded by the 1 px the refinement may move, so its objective has no jumps at whole
+  pixels), the aligned difference
   image (b − shifted a) as a derived image, and changed regions (centroid nm, sign, area
   nm², peak change). Frames with different geometry are resampled onto the overlap in
   scan nm first.
@@ -353,7 +363,9 @@ implements `protocol.RunnerHost` without `act`, and a report table.
 | `advisor` | image | yes | yes | yes | MAST detectors on request |
 
 Every image arm draws the graph paper (§5.2); `with_options(arm, grid=False)` (CLI `--grid off`)
-renders without it under the name `<arm>-nogrid`, which reproduces the tool surface of m1 byte for byte.
+renders without it under the name `<arm>-nogrid`. Until 2026-10-13 that reproduced m1's tool surface
+byte for byte; since the reference fixes of that day it does so only at the tag `m1-surface`
+(`tests/test_surface.py` pins the current surface of every arm).
 
 ## 11. Definition of done for each work package
 

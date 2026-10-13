@@ -9,7 +9,8 @@ isolates the representation.
 
 ``grid``: scan images carry the metric grid, VISTA's graph paper (``frames.view_grid``). Every
 image arm has it since 2026-10-12. The first matrix (m1) ran without it; ``with_options(arm,
-grid=False)`` reproduces that under the name ``<arm>-nogrid``.
+grid=False)`` renders without it under the name ``<arm>-nogrid``. m1 itself, surface and tool
+behaviour, is reproduced from the tag ``m1-surface`` (docs/notes/2026-10-13-reference-fixes.zh-CN.md).
 """
 from __future__ import annotations
 

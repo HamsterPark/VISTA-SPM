@@ -29,7 +29,7 @@ Setup:
 - **Actions:** the V0 primitive actions.
 - **Scenarios:** P1 (Au(111) herringbone), P4 (positioning an Fe atom on Cu(111)) and P5 (qPlus force spectroscopy with Sader–Jarvis inversion).
 - **Seeds:** 0–2.
-- **Images:** no grid yet. The graph paper below was added on 2026-10-12; `--grid off` reproduces these runs.
+- **Images:** no grid yet. The graph paper below was added on 2026-10-12. These runs are reproduced from the tag `m1-surface` with `--grid off`; the reference fixes of 2026-10-13 changed some tools since ([notes](docs/notes/2026-10-13-reference-fixes.zh-CN.md)).
 - **Scoring:** the official STM-Bench judge.
 
 | Arm | Observation and tools | Claims verified | Fully reproduced |

@@ -18,9 +18,11 @@ VISTA-SPM is an image-first visual harness for a multimodal model operating the 
    - The ledger keeps truth for the judge and for replay after the episode.
 2. **The model-facing surface changes only on purpose.**
    - Treat tool names, descriptions, reply keys, units and decimals as experiment parameters.
-   - Before and after a change, compare `python -m vista_spm tools --arm <arm> --json` for every arm.
-     With `--grid off` the surface must still equal that of the first matrix (m1), byte for byte.
-   - Record any difference with the results it affects.
+   - Before and after a change, compare `python -m vista_spm tools --arm <arm> --json` for every arm, with and without `--grid off` and `--qplus`.
+     `tests/test_surface.py` pins all of them; a deliberate change updates the pins.
+   - Record any difference with the results it affects, in `docs/notes/`.
+   - The first matrix (m1) is reproduced from the tag `m1-surface` with `--grid off`, surface and tool behaviour alike.
+     Since the reference fixes of 2026-10-13 the main line differs from m1 ([notes](docs/notes/2026-10-13-reference-fixes.zh-CN.md)); never pool runs from both sides.
 3. **Billing stays on the subscription.**
    - `RunnerConfig.auth = "subscription"` strips `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from the Claude Code child process. It also aborts a session whose init reports an API key source.
    - STM-Bench's RuntimeHost exports MAST's provider keys into the environment, which is how roughly $52 of API usage happened on 2026-10-09.
