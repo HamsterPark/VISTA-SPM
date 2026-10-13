@@ -50,6 +50,7 @@ MAX_PROFILE_SAMPLES = 400
 REFINE_PX = 256          # side of the central window the sub-pixel registration is refined on
 REFINE_STEP_PX = 1       # the refinement may move the shift at most this far from the parabolic start
 MAX_BLOBS = 200
+AXIS_MIN_ELONGATION = 1.1   # below this a blob's axis angle is noise and is reported as null
 MAX_REGIONS = 30
 
 
@@ -904,7 +905,8 @@ def make_detect_blobs_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
         "(x_px, y_px) and in scan-frame nm (x_nm, y_nm), height relative to the local background (height_pm "
         "for Z, height_pa for current; negative for dark blobs), FWHM along the frame's x and y and along its "
         "major/minor axes (nm), elongation (major/minor), the major axis angle (axis_angle_deg, scan frame, "
-        "from +x toward +y) and whether the centroid comes from the Gaussian fit or from intensity moments "
+        "from +x toward +y; null when the elongation is below 1.1, where noise decides the axis) and whether "
+        "the centroid comes from the Gaussian fit or from intensity moments "
         "(fit). Blobs are numbered in reading order (top to bottom, left to right). One image of the frame "
         "or region with numbered rings is returned and archived as a derived frame (image.frame); the marks "
         "exist only on that image. It counts and locates; it does not identify species or decide what is an "
@@ -946,7 +948,9 @@ def detect_blobs(archive: Archive, args: dict) -> ToolReply:
             "y_nm": round(float(Y), 4), fmt.key("height"): fmt.value(res["sign"] * b["height"]),
             "fwhm_x_nm": round(g["fwhm_x_nm"], 3), "fwhm_y_nm": round(g["fwhm_y_nm"], 3),
             "fwhm_major_nm": round(g["fwhm_major_nm"], 3), "fwhm_minor_nm": round(g["fwhm_minor_nm"], 3),
-            "elongation": round(g["elongation"], 2), "axis_angle_deg": round(g["axis_angle_deg"], 1),
+            "elongation": round(g["elongation"], 2),
+            "axis_angle_deg": (round(g["axis_angle_deg"], 1) if round(g["elongation"], 2) >= AXIS_MIN_ELONGATION
+                               else None),
             "fit": b["fit"]})
         ix, iy = _image_xy(view, b["col"], b["row"])
         rad = max(9.0, 0.65 * FWHM_PER_SIGMA * max(b["sa"], b["sb"]) * view.up / view.down + 6.0)

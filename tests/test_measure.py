@@ -173,6 +173,21 @@ def test_detect_blobs_elongated_and_no_false_positives(tmp_path):
     assert body["n_blobs"] == 0
 
 
+def test_detect_blobs_axis_angle_of_round_blobs_is_null(tmp_path):
+    """A round blob's fitted axis is set by noise (m1 reported it as a number). Below an elongation
+    of 1.1 the reply says null; elongated blobs keep their angle."""
+    arch = Archive(tmp_path)
+    g = _geom(nx=128, ny=128, w=12.8, h=12.8)
+    round_ = _ok(M.detect_blobs(arch, {"frame": _add(arch, 0, _blobs(128, 128, [(40.3, 50.6), (90.2, 80.4)],
+                                                                         2.0, 2.0, 40e-12, 2e-12, 21), g)}))
+    assert round_["n_blobs"] == 2
+    assert all(b["elongation"] < 1.1 and b["axis_angle_deg"] is None for b in round_["blobs"])
+    long_ = _ok(M.detect_blobs(arch, {"frame": _add(arch, 1, _blobs(128, 128, [(40.3, 50.6)], 2.6, 1.6, 40e-12,
+                                                                        2e-12, 22), g)}))
+    (b,) = long_["blobs"]
+    assert b["elongation"] >= 1.1 and min(b["axis_angle_deg"], 180 - b["axis_angle_deg"]) < 5
+
+
 def test_detect_blobs_on_a_dense_lattice():
     """A 13 x 13 lattice of 30 pm atoms (period 10 px, sigma 1.3 px) with 1.5 pm noise. m1 took the
     noise from the median absolute deviation of the whole residual, which the lattice itself
