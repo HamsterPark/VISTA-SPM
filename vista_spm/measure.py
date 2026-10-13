@@ -375,8 +375,9 @@ def make_line_profile_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
     desc = (
         "Measure values along a straight line in one archived scan frame without changing the instrument. "
         "p1 and p2 are either {x, y} in display pixels of that frame's full image or {x_nm, y_nm} in "
-        "scan-frame nm. The flattened frame (default plane) is interpolated bilinearly at most one scan "
-        "pixel apart and averaged across width_px. The reply gives distance_nm from p1 and the values "
+        "scan-frame nm. The flattened frame (default plane) is interpolated bilinearly at up to 400 evenly "
+        "spaced samples, at most one scan pixel apart on a line shorter than 400 scan pixels (spacing_nm "
+        "gives the spacing), and averaged across width_px. The reply gives distance_nm from p1 and the values "
         "(values_pm for Z, values_pa for current) per sample; the line's length and direction in the scan "
         "frame; the straight segments of a piecewise-linear fit (from_nm, to_nm, slope, mean); and step "
         "candidates where the segments on either side of a short transition differ by at least 4 noise "

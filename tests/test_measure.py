@@ -452,6 +452,16 @@ def test_line_profile_finds_a_step(tmp_path):
                                                                     "p2": {"x": 4, "y": 3}}))
 
 
+def test_line_profile_long_lines_take_400_samples(tmp_path):
+    """The description says the samples stop at 400 (m1 promised at most one scan pixel apart)."""
+    assert "up to 400 evenly spaced samples" in M.LINE_PROFILE_TOOL.description
+    g = _geom(nx=600, ny=20, w=60.0, h=2.0)
+    arch = Archive(tmp_path)
+    fid = _add(arch, 0, np.random.default_rng(0).normal(0, 1e-12, (20, 600)), g)
+    body = _ok(M.line_profile(arch, {"frame": fid, "p1": {"x": 0, "y": 10}, "p2": {"x": 600, "y": 10}}))
+    assert body["n_samples"] == 400 and body["spacing_nm"] == pytest.approx(60.0 / 399, abs=1e-5)
+
+
 def test_change_points_unit():
     x = np.linspace(0, 10, 201)
     y = np.where(x > 4.0, 2.0, 0.0) + 0.3 * x + np.random.default_rng(1).normal(0, 0.05, x.size)

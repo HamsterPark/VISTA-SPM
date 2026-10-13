@@ -33,14 +33,14 @@ M1_SURFACE = {          # arm: (without qPlus, with qPlus), grid off
 }
 
 SURFACE = {             # arm: (grid off, grid off + qPlus, default, default + qPlus)
-    "full": ("d1cef425f8862462", "a7ad11e428eea888", "a149b552d6818df2", "6f1c1aa4713b99bb"),
+    "full": ("0988707445b0385a", "71e5aa3a8ecc9538", "9254e28b00d6c261", "e13f03efed6b976b"),
     "read": ("ac6457e6fa5e3b88", "b9d7db692dcbeb26", "8bca9399a9d8aea9", "39955e065d63e146"),
     "mem": ("1a709ad3a198888e", "6ef0604706c5a502", "6f28dbea8b711b67", "d0810ba35839084d"),
     "notes": ("ec7380e9da0d3fad", "361b0dc13083ce70", "c3fbebb6d195eccd", "d00e7393a2e7bfa4"),
     "img": ("67fd045e1bde22fe", "29c20de81320aa48", "541abb11d243be7f", "ea416f110bab4ff9"),
     "text": (None, None, "fdb6ff1467869c44", "d086df22455209e7"),
     "vigil-text": (None, None, "dbc1e6c31136c497", "1684d369c65154ef"),
-    "advisor": ("970275ac6242678c", "07cdc369a1d3e0bb", "a48d9893a4bda4e9", "b733396028b8835b"),
+    "advisor": ("fc550b0cd070a70a", "3fa2d85efbe511d8", "2dc3f69123525d66", "27bf04fe9e46270e"),
 }
 
 M1_UNCHANGED = ("notes", "img", "text", "vigil-text")
