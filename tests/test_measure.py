@@ -173,6 +173,15 @@ def test_detect_blobs_elongated_and_no_false_positives(tmp_path):
     assert body["n_blobs"] == 0
 
 
+def test_detect_blobs_lists_at_most_50(tmp_path):
+    """max_n is capped at 50 (m1 allowed 200, a 45 KB reply)."""
+    assert M.DETECT_BLOBS_TOOL.input_schema["properties"]["max_n"]["maximum"] == 50
+    arch = Archive(tmp_path)
+    fid = _add(arch, 0, np.random.default_rng(0).normal(0, 1e-12, (64, 64)), _geom(nx=64, ny=64))
+    assert "must be <= 50" in _err(M.detect_blobs(arch, {"frame": fid, "max_n": 51}))
+    assert _ok(M.detect_blobs(arch, {"frame": fid, "max_n": 50}))["n_blobs"] == 0
+
+
 def test_detect_blobs_axis_angle_of_round_blobs_is_null(tmp_path):
     """A round blob's fitted axis is set by noise (m1 reported it as a number). Below an elongation
     of 1.1 the reply says null; elongated blobs keep their angle."""

@@ -49,7 +49,9 @@ MARK_RGB = (255, 214, 0)
 MAX_PROFILE_SAMPLES = 400
 REFINE_PX = 256          # side of the central window the sub-pixel registration is refined on
 REFINE_STEP_PX = 1       # the refinement may move the shift at most this far from the parabolic start
-MAX_BLOBS = 200
+#: At most this many blobs per reply (200 blobs make a 45 KB reply). dsh-spm, whose replies hold at most
+#: 48 KB, caps at 50 as well (its D-VMEM-9).
+MAX_BLOBS = 50
 AXIS_MIN_ELONGATION = 1.1   # below this a blob's axis angle is noise and is reported as null
 MAX_REGIONS = 30
 
@@ -894,7 +896,7 @@ def make_detect_blobs_tool(display_max: int = DISPLAY_MAX_DEFAULT) -> ToolDef:
                                     "description": "Width of the median background removed first. Default 3 nm; "
                                                    "use a larger value for larger features."},
                   "max_n": {"type": "integer", "minimum": 1, "maximum": MAX_BLOBS,
-                            "description": "At most this many blobs, the highest. Default 50."}}}
+                            "description": "At most this many blobs (up to 50), the highest. Default 50."}}}
     desc = (
         "Find compact bright (or dark) features in one archived scan frame, or in a region of it (display "
         "pixels of the frame's full image), without changing the instrument. The frame is plane-flattened, a "
