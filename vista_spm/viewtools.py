@@ -277,7 +277,8 @@ def make_inspect_tool(display_max: int = DISPLAY_MAX_DEFAULT, grid: bool = False
                 "x_col": {"type": "string", "minLength": 1, "maxLength": 64,
                           "description": "Spectrum only: x column (default the sweep column)."},
                 "y_col": {"type": "string", "minLength": 1, "maxLength": 64,
-                          "description": "Spectrum only: one y column (default: every column, one panel each)."},
+                          "description": "Spectrum only: one y column (default: the first four columns other than x, "
+                                         "one panel each)."},
                 "x_range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2,
                             "description": "Spectrum only: [low, high] of the x axis, in the unit the plot "
                                            "shows (bias in V, Z in pm)."},

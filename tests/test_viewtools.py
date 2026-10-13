@@ -291,6 +291,22 @@ def test_inspect_spectrum_without_a_finite_x_value_replies_in_json(tmp_path):
     assert _strict_json(r.text)["views"][0]["x_shown_v"] == [None, None]
 
 
+def test_inspect_spectrum_default_plots_the_first_four_columns(tmp_path):
+    """The y_col description says what the default plots (m1 said "every column")."""
+    pytest.importorskip("mast.io.nanonis_files")
+    names = ["Bias calc (V)", "Current (A)", "LI Demod 1 X (A)", "LI Demod 1 Y (A)", "Z (m)", "Current [bwd] (A)"]
+    rows = ["Experiment\tbias spectroscopy\t", "X (m)\t0.000000E+00\t", "Y (m)\t0.000000E+00\t", "", "[DATA]",
+            "\t".join(names)] + ["\t".join(f"{(i + k) * 1e-11:.6E}" for k in range(6)) for i in range(7)]
+    dat = tmp_path / "six.dat"
+    dat.write_text("\n".join(rows) + "\n", encoding="ascii")
+    a = Archive(tmp_path / "s")
+    d = a.add_spectrum(0, dat)
+    view = _ok(V.inspect(a, {"question": "q", "views": [{"label": "p", "frame": d.fid}]}))["views"][0]
+    assert view["y_cols"] == names[1:5]
+    desc = V.INSPECT_TOOL.input_schema["properties"]["views"]["items"]["properties"]["y_col"]["description"]
+    assert "first four columns other than x" in desc
+
+
 def test_read_values_spectrum(tmp_path):
     pytest.importorskip("mast.io.nanonis_files")
     from tests.test_frames import write_dat
