@@ -318,8 +318,6 @@ VISTA-SPM 在我们的 SPM 研究软件中承担视觉推理层的角色。相�
 | [MAST-public](https://github.com/HamsterPark/MAST-public) | STM 自动化：仪器运行时、技能、状态反馈与实验工作流 | MAST 的有限公开版可执行本仓库的闭环动作；其 README 系统介绍自主 STM 的科学动机；持续维护的视觉 harness 位于 MAST 中。 |
 | [dsh-spm](https://github.com/HamsterPark/dsh-spm) | DeepSeek Harness 中的 SPM 工具与运行时集成 | 将视觉记忆、标定读出和测量工具移植到 TypeScript，并用本 Python 实现导出的参考结果检验一致性。 |
 | [STM-Bench](https://github.com/HamsterPark/STM-Bench) | 模拟显微镜、科学场景、采集记录与基于证据的判分 | 为 VISTA-SPM 消融提供仪器与评估环境，同时提供 `.sxm` / `.dat` 读取器。 |
-| [AFS3D](https://github.com/HamsterPark/AFS3D) | 三维原子力谱：漂移校正、力重建与实验—理论对照 | 互补的科学分析流程，体现空间配准、定量信号和可追溯比较在 SPM 中的价值。 |
-| [dft-spm-toolkit](https://github.com/HamsterPark/dft-spm-toolkit) | 基于电子结构计算和探针粒子模型的 STM/nc-AFM 图像模拟 | 将图像衬度与原子结构、探针响应和成像机制联系起来的互补研究工具。 |
 
 MAST 运行时提供动作，VISTA-SPM 组织视觉证据，STM-Bench 评估由此形成的实验行为。在 dsh-spm 中，[运行时集成](https://github.com/HamsterPark/dsh-spm/blob/master/packages/bundle/dsh-spm/src/visual-harness.ts) 将 TypeScript 档案、观测传递和动作门控连接起来；其一致性参考数据由本仓库的 `frames.py`、`archive.py`、`viewtools.py` 和 `measure.py` 生成。这给出了从共同科学设计到不同智能体系统实现的具体复用途径。
 
