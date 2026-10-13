@@ -14,6 +14,10 @@ Atomic-scale experiments demand an agent that can reason with images over time. 
 
 ## Why VISTA for STM
 
+**Representation is part of reasoning.**
+
+We adopt this as a design principle for autonomous microscopy. How images are presented, history is retained, spatial relationships are organised, and observations are connected to physical quantities shapes the hypotheses an agent can formulate, the evidence it can compare, and the experiments it can choose. Viewing, revisiting, magnifying, registering, and measuring all participate in that reasoning process. **Designing visual representations and evidence interfaces means designing the conditions under which an autonomous experimental system can reason scientifically.**
+
 ### Visual access is part of the reasoning method
 
 The central contribution of Han et al.'s *VISTA: A Visual Harness for Reasoning in an Interactive World* is to make visual evidence persist and remain available for active inspection. The agent sees images directly, retrieves earlier observations, enlarges relevant regions, reads exact pixels, and maintains revisable notes. This gives an existing multimodal model a practical way to sustain visual reasoning through a long interaction. In the paper's sequential ablation with GPT-5.6 Sol at max reasoning effort on 25 public ARC-AGI-3 games, adding lossless visual memory and `inspect` raises Relative Human Action Efficiency (RHAE) from 70.05 to 94.10; adding exact pixel readout raises it to 99.00. These results motivate our choice of architecture. [VISTA ablation study](https://arxiv.org/html/2610.02200v1#S4.SS3) · [upstream implementation](https://github.com/joshhhhhan/VISTA).
