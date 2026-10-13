@@ -656,9 +656,40 @@ def _gauss_model(p: np.ndarray, xx: np.ndarray, yy: np.ndarray) -> np.ndarray:
     return A * np.exp(-0.5 * ((u / sa) ** 2 + (v / sb) ** 2)) + c
 
 
+#: Second moment, in units of sigma^2, of a 2-D Gaussian weighted by its excess over half its peak
+#: (the weights :func:`_moment_start` uses): sum(u^2 w) / sum(w) with w = g - 1/2 where g > 1/2.
+_HALF_MAX_MOMENT = (2.0 * (0.5 - 0.5 * math.log(2.0)) - 0.5 * math.log(2.0) ** 2) / (2.0 * (0.5 - 0.5 * math.log(2.0)))
+
+
+def _moment_start(xs: np.ndarray, ys: np.ndarray, vs: np.ndarray, sigma0: float, lo: float,
+                  hi: float) -> tuple[float, float, float]:
+    """Start ``(sa, sb, theta)`` of the Gaussian fit from the intensity moments of the pixels above
+    half the peak (``vs`` is normalised to a peak of 1). A circular start leaves the model independent
+    of theta, so the first step in theta follows rounding noise and can run to a far orientation;
+    starting from the moments' ellipse keeps theta's gradient defined. Falls back to a circle of
+    ``sigma0`` when fewer than three pixels lie above half the peak."""
+    w = vs - 0.5
+    keep = w > 0
+    if keep.sum() < 3:
+        return sigma0, sigma0, 0.0
+    w, x, y = w[keep], xs[keep], ys[keep]
+    x0, y0 = float((w * x).sum() / w.sum()), float((w * y).sum() / w.sum())
+    cxx = float((w * (x - x0) ** 2).sum() / w.sum()) + 1.0 / 12
+    cyy = float((w * (y - y0) ** 2).sum() / w.sum()) + 1.0 / 12
+    cxy = float((w * (x - x0) * (y - y0)).sum() / w.sum())
+    tr, det = cxx + cyy, cxx * cyy - cxy * cxy
+    disc = math.sqrt(max(0.0, tr * tr / 4 - det))
+    l1, l2 = tr / 2 + disc, max(1e-6, tr / 2 - disc)
+    sa = float(np.clip(math.sqrt(l1 / _HALF_MAX_MOMENT), lo, hi))
+    sb = float(np.clip(math.sqrt(l2 / _HALF_MAX_MOMENT), lo, hi))
+    return sa, sb, 0.5 * math.atan2(2 * cxy, cxx - cyy)
+
+
 def _fit_blob(r: np.ndarray, use: np.ndarray, row: int, col: int, sigma0: float, R: int) -> dict | None:
     """Elliptical Gaussian + constant fitted to the residual around ``(row, col)``; ``None``
-    when the fit fails or wanders off (the caller then uses moments and says so)."""
+    when the fit fails or wanders off (the caller then uses moments and says so). The fit starts
+    from the intensity moments' ellipse; theta is unbounded (an ellipse repeats every pi, so a bound
+    only gives the fit a wall to stop at) and is returned folded into [-pi/2, pi/2)."""
     from scipy.optimize import least_squares
 
     ny, nx = r.shape
@@ -675,9 +706,10 @@ def _fit_blob(r: np.ndarray, use: np.ndarray, row: int, col: int, sigma0: float,
     if not A0 > 0:
         return None
     xs, ys, vs = xx[m].astype(float), yy[m].astype(float), (sub[m] - c0) / A0
-    p0 = np.array([1.0, col, row, sigma0, sigma0, 0.0, 0.0])
-    lo = np.array([0.0, col - R, row - R, 0.3, 0.3, -math.pi, -2.0])
-    hi = np.array([4.0, col + R, row + R, 2.0 * R, 2.0 * R, math.pi, 2.0])
+    sa0, sb0, th0 = _moment_start(xs, ys, vs, sigma0, 0.35, 1.9 * R)
+    p0 = np.array([1.0, col, row, sa0, sb0, th0, 0.0])
+    lo = np.array([0.0, col - R, row - R, 0.3, 0.3, -np.inf, -2.0])
+    hi = np.array([4.0, col + R, row + R, 2.0 * R, 2.0 * R, np.inf, 2.0])
     try:
         sol = least_squares(lambda p: _gauss_model(p, xs, ys) - vs, p0, bounds=(lo, hi), max_nfev=400)
     except Exception:  # noqa: BLE001 — a failed fit falls back to moments (reported)
@@ -689,8 +721,9 @@ def _fit_blob(r: np.ndarray, use: np.ndarray, row: int, col: int, sigma0: float,
         return None
     if sa >= 1.95 * R or sb >= 1.95 * R or A <= 0:
         return None
+    th = (float(th) + math.pi / 2) % math.pi - math.pi / 2
     return {"A": float(A * A0), "x0": float(x0), "y0": float(y0), "sa": float(sa), "sb": float(sb),
-            "theta": float(th), "c": float(c * A0 + c0), "fit": "gaussian"}
+            "theta": th, "c": float(c * A0 + c0), "fit": "gaussian"}
 
 
 def _moments_blob(r: np.ndarray, comp: np.ndarray, row: int, col: int) -> dict:

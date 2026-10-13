@@ -173,6 +173,26 @@ def test_detect_blobs_elongated_and_no_false_positives(tmp_path):
     assert body["n_blobs"] == 0
 
 
+def test_blob_fit_orientation_does_not_stick_at_a_bound():
+    """Single blobs with aspect 2.75 at random orientations. m1 started every fit at a circle, where
+    the model does not depend on theta, and bounded theta to [-pi, pi]: for seed 116 the fit ran to
+    theta = pi and stopped there with the major axis 31 deg off and the wrong aspect."""
+    for seed in range(110, 130):
+        rng = np.random.default_rng(seed)
+        th = float(rng.uniform(-math.pi / 2, math.pi / 2))
+        n = 64
+        yy, xx = np.mgrid[0:n, 0:n]
+        c, r = 32.0 + rng.uniform(-0.5, 0.5), 32.0 + rng.uniform(-0.5, 0.5)
+        dx, dy = xx + 0.5 - c, yy + 0.5 - r
+        u, v = dx * math.cos(th) + dy * math.sin(th), -dx * math.sin(th) + dy * math.cos(th)
+        z = 35e-12 * np.exp(-0.5 * ((u / 3.3) ** 2 + (v / 1.2) ** 2)) + rng.normal(0, 2e-12, (n, n))
+        (b,) = M.find_blobs(z, dx_nm=0.1, dy_nm=0.1)["blobs"]
+        assert b["fit"] == "gaussian" and -math.pi / 2 <= b["theta"] < math.pi / 2
+        major = b["theta"] if b["sa"] >= b["sb"] else b["theta"] + math.pi / 2
+        assert abs((math.degrees(major - th) + 90) % 180 - 90) < 3.0, seed
+        assert max(b["sa"], b["sb"]) / min(b["sa"], b["sb"]) == pytest.approx(2.75, rel=0.1), seed
+
+
 def test_detect_blobs_polarity_threshold_region(tmp_path):
     centres = [(40.5, 40.5), (100.25, 60.75)]
     z = -_blobs(128, 128, centres, 2.0, 2.0, 40e-12, 1e-12, 7)
