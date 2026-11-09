@@ -159,7 +159,7 @@ measurement = stats(archive, {"frame": frame.fid})
 
 两个 Claude 臂的差距几乎全部来自鱼骨条纹周期，这类题需要精确测量。
 
-**实验范围与版本记录。** 上述结果均来自模拟器实验。存档运行使用 MAST 和 2026-10-09/10 版本的 STM-Bench，早于公开规则 v1 及后续模拟器改动。精确重跑历史实验需要当时的依赖快照，其中包含私有组件；冻结文件的哈希见 [results/m1/code_manifest.json](results/m1/code_manifest.json)。`m1-surface` 标签配合 `--grid off` 保留了当时面向模型的提示词、工具 schema 和工具行为；当前工具已纳入 [2026-10-13 参考实现修复](docs/notes/2026-10-13-reference-fixes.zh-CN.md)。实验细节见[首轮结果报告](docs/notes/2026-10-10-first-results.zh-CN.md)，汇总表见 [results/](results/)。
+**实验范围与版本记录。** 上述结果均来自模拟器实验；持续维护的 MAST 集成版已在真机上使用。存档运行使用 MAST 和 2026-10-09/10 版本的 STM-Bench，早于公开规则 v1 及后续模拟器改动。精确重跑历史实验需要当时的依赖快照，其中包含私有组件；冻结文件的哈希见 [results/m1/code_manifest.json](results/m1/code_manifest.json)。`m1-surface` 标签配合 `--grid off` 保留了当时面向模型的提示词、工具 schema 和工具行为；当前工具已纳入 [2026-10-13 参考实现修复](docs/notes/2026-10-13-reference-fixes.zh-CN.md)。实验细节见[首轮结果报告](docs/notes/2026-10-10-first-results.zh-CN.md)，汇总表见 [results/](results/)。
 
 ## 工作方式
 
