@@ -1,6 +1,6 @@
 # AGENTS.md: repository guide
 
-VISTA-SPM is an image-first visual harness for a multimodal model operating the STM-Bench simulator through MAST. This repository is a public demonstration snapshot; the maintained harness lives in MAST. [README.md](README.md) gives the overview; [docs/DESIGN.md](docs/DESIGN.md) is the specification. Read `vista_spm/protocol.py` before changing any module.
+VISTA-SPM is an image-first visual harness for a multimodal model operating the STM-Bench simulator through MAST. This repository is a public demonstration snapshot; the maintained harness lives in MAST, where it is in real-instrument use. [README.md](README.md) gives the overview; [docs/DESIGN.md](docs/DESIGN.md) is the specification. Read `vista_spm/protocol.py` before changing any module.
 
 ## What this repository depends on
 
